@@ -164,9 +164,7 @@ def _track_map(run, rotation):
 
 
 def zone_colour(comparison, zone):
-    """Purple marks the single biggest difference on the lap; other zones take the colour of who gained there."""
-    if zone == comparison.biggest_zone():
-        return style.PURPLE
+    """A zone takes the colour of the driver who gained time there."""
     return f"#{(comparison.fast if zone.gain > 0 else comparison.slow).colour}"
 
 

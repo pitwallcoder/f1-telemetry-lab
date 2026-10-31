@@ -15,8 +15,8 @@ uv run python -m pitwall 2026 "Mexico City" Q LEC VER --code PW-005  # two drive
 Each run writes to `out/<code>/`:
 
 - a 1600×900 PNG that states measured facts only: lap times and official sector gaps as on a timing screen, the
-  speed traces, the gap along the lap, and the zones where each driver gained time. Purple marks the single biggest
-  difference on the lap; other zones take the colour of the driver who gained there;
+  speed traces, the gap along the lap, and the zones where each driver gained time, each zone in the team colour
+  of the driver who gained there;
 - a JSON file with the same facts (lap and sector times, zones with speeds at braking and minimum speeds, data
   quality), for writing the post around the chart. Interpretation lives in the post, not in the chart.
 

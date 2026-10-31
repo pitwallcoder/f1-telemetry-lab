@@ -1,4 +1,4 @@
-"""Pit Wall Notes visual identity. Purple marks the insight and nothing else."""
+"""Pit Wall Notes visual identity. Purple is the brand accent and never encodes data; drivers keep their team colours."""
 import matplotlib
 import numpy as np
 from matplotlib.backends.backend_agg import FigureCanvasAgg
@@ -33,7 +33,8 @@ def figure():
 
 
 def context_line(fig, code, context):
-    fig.text(0.04, 0.925, f"{code} · {context}".upper(), fontsize=9, color=MUTED)
+    text_row(fig, 0.04, 0.925, [(code.upper(), PURPLE, {"fontsize": 9, "fontweight": "bold"}),
+                                (f"· {context}".upper(), MUTED, {"fontsize": 9})], gap=0.006)
 
 
 def text_row(fig, x, y, parts, gap=0.012):
@@ -57,7 +58,7 @@ def style_axes(ax):
         side.set_visible(False)
 
 
-def highlight(ax, x0, x1, colour=PURPLE, alpha=0.12):
+def highlight(ax, x0, x1, colour, alpha=0.12):
     ax.axvspan(x0, x1, color=colour, alpha=alpha, linewidth=0)
 
 

@@ -1,6 +1,6 @@
 import numpy as np
 
-from pitwall import speed_chart, style
+from pitwall import speed_chart
 from pitwall.speed_chart import Comparison, Driver, Quality
 from pitwall.telemetry import Zone
 
@@ -26,12 +26,8 @@ def test_table_credits_the_rest_of_the_lap_to_whoever_gained_it():
     assert rest == ("·", "VER", 0.15, "rest of lap")
 
 
-def test_purple_marks_only_the_biggest_difference_whoever_made_it():
-    assert speed_chart.zone_colour(MIXED, MIXED.zones[0]) == style.PURPLE
-    assert speed_chart.zone_colour(MIXED, MIXED.zones[1]) == "#3671c6"
-    assert speed_chart.zone_colour(MIXED, MIXED.zones[2]) == "#e8002d"
-    slower_biggest = comparison([Zone(0.1, 0, 1), Zone(-0.2, 2, 3)], ["T1", "T2"], -0.1)
-    assert speed_chart.zone_colour(slower_biggest, slower_biggest.zones[1]) == style.PURPLE
+def test_zones_take_the_colour_of_the_driver_who_gained_there():
+    assert [speed_chart.zone_colour(MIXED, z) for z in MIXED.zones] == ["#e8002d", "#3671c6", "#e8002d"]
 
 
 def test_lap_time_is_formatted_like_timing_screens():
