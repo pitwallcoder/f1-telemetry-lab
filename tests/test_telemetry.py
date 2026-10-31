@@ -78,15 +78,12 @@ CORNERS = [(1, 1200.0), (2, 1280.0), (3, 1340.0), (6, 2220.0)]
 @pytest.mark.parametrize("start, end, expected", [
     (1190, 1500, "T1–T3"),
     (1250, 1300, "T2"),
-    (2100, 2200, "into T6"),
-    (1360, 1450, "out of T3"),
+    (1400, 2200, "T3→T6"),
+    (0, 1100, "line→T1"),
+    (2300, 4200, "T6→line"),
 ])
 def test_zone_name_uses_official_corners(start, end, expected):
     assert telemetry.zone_name(start, end, CORNERS) == expected
-
-
-def test_zone_name_calls_a_cornerless_first_zone_the_start_straight():
-    assert telemetry.zone_name(0, 120, CORNERS) == "start straight"
 
 
 def test_table_rows_add_up_to_the_printed_lap_gap():

@@ -62,7 +62,7 @@ built, and how it is built decides the precision.
 5. **Zones**: the lap is split where the gap turns, read only where it is measurable (from 60% of top speed up)
    and ignoring wiggles under 0.025 s, and also where each long straight ends, since straight-line time builds up
    slowly and corner time quickly. Every zone where either driver gained 0.05 s or more is shown, named by its
-   corners; the rest adds up to the lap gap.
+   corners ("T4–T6") or, for a straight, by the corners either side ("T3→T4"); the rest adds up to the lap gap.
 
 ### Precision
 

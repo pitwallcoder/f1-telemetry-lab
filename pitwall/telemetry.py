@@ -84,17 +84,13 @@ def notable(zones, limit, min_gain=MIN_ZONE_GAIN_S):
 
 
 def zone_name(d_start, d_end, corner_d):
-    """Corners inside the zone, else the nearest one it leads into or out of."""
+    """Corners inside the zone, or the corners on either side of it: "T3→T4", "line→T1", "T17→line"."""
     inside = [n for n, d in corner_d if d_start <= d <= d_end]
     if inside:
         return f"T{inside[0]}" if len(inside) == 1 else f"T{inside[0]}–T{inside[-1]}"
-    if d_start == 0:
-        return "start straight"
-    before = [(d_start - d, n) for n, d in corner_d if d < d_start]
-    after = [(d - d_end, n) for n, d in corner_d if d > d_end]
-    if after and (not before or min(after) < min(before)):
-        return f"into T{min(after)[1]}"
-    return f"out of T{min(before)[1]}"
+    before = [n for n, d in corner_d if d < d_start]
+    after = [n for n, d in corner_d if d > d_end]
+    return f"{f'T{before[-1]}' if before else 'line'}→{f'T{after[0]}' if after else 'line'}"
 
 
 def table_rows(zones, total_gap):
