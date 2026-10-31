@@ -29,46 +29,47 @@ def test_measurable_is_the_fast_part_of_the_lap():
     assert list(telemetry.measurable(trace)) == [True, True, False, True, False]
 
 
-def readable_everywhere(gap):
-    return np.ones(len(gap), dtype=bool)
+def zones_of(gap, readable=None, cuts=()):
+    gap = np.asarray(gap, float)
+    readable = np.ones(len(gap), dtype=bool) if readable is None else np.asarray(readable)
+    return [(z.start, z.end, round(z.gain, 3)) for z in telemetry.turning_zones(gap, readable, cuts)]
 
 
 def test_turning_zones_follow_rises_and_falls_and_add_up_to_the_lap():
-    gap = np.array([0.0, 0.1, 0.3, 0.4, 0.3, 0.2, 0.25, 0.5])
-    zones = telemetry.turning_zones(gap, readable_everywhere(gap))
-    assert [(z.start, z.end, round(z.gain, 3)) for z in zones] == [(0, 3, 0.4), (3, 5, -0.2), (5, 7, 0.3)]
-    assert round(sum(z.gain for z in zones), 3) == gap[-1]
+    gap = [0.0, 0.1, 0.3, 0.4, 0.3, 0.2, 0.25, 0.5]
+    assert zones_of(gap) == [(0, 3, 0.4), (3, 5, -0.2), (5, 7, 0.3)]
 
 
 def test_turning_zones_ignore_wiggles_smaller_than_the_threshold():
-    gap = np.array([0.0, 0.2, 0.19, 0.21, 0.4])
-    assert [(z.start, z.end) for z in telemetry.turning_zones(gap, readable_everywhere(gap))] == [(0, 4)]
+    assert [(a, b) for a, b, _ in zones_of([0.0, 0.2, 0.19, 0.21, 0.4])] == [(0, 4)]
 
 
 def test_turning_zones_never_cut_at_an_unreadable_point():
-    gap = np.array([0.0, 0.05, 0.4, -0.1, 0.39, 0.5, 0.5])  # the -0.1 dip sits in a slow corner
-    readable = np.array([True, True, True, False, True, True, True])
-    zones = telemetry.turning_zones(gap, readable)
-    assert [(z.start, z.end, round(z.gain, 3)) for z in zones] == [(0, 5, 0.5)]
+    gap = [0.0, 0.05, 0.4, -0.1, 0.39, 0.5, 0.5]  # the -0.1 dip sits in a slow corner
+    assert zones_of(gap, [True, True, True, False, True, True, True]) == [(0, 5, 0.5), (5, 6, 0.0)]
 
 
-def test_turning_zones_drop_flat_ends():
-    gap = np.array([0.0, 0.01, 0.02, 0.2, 0.39, 0.4, 0.4])
-    zone, = telemetry.turning_zones(gap, readable_everywhere(gap))
-    assert (zone.start, zone.end, round(zone.gain, 3)) == (2, 4, 0.37)
+def test_turning_zones_split_a_gain_at_the_end_of_a_straight():
+    # The faster car gains slowly on the straight, then quickly in the corner after it.
+    gap = [0.0, 0.01, 0.02, 0.03, 0.2, 0.4]
+    assert zones_of(gap, cuts=[3]) == [(0, 3, 0.03), (3, 5, 0.37)]
 
 
-# In lap order, with the biggest gains of each driver not first.
-ZONES = [Zone(0.09, 0, 1), Zone(-0.06, 2, 3), Zone(0.31, 4, 5), Zone(0.02, 6, 7), Zone(-0.12, 8, 9), Zone(0.18, 10, 11)]
+def test_straight_ends_are_where_the_car_brakes_from_near_top_speed():
+    trace = Trace(None, np.arange(8.0), np.array([300, 340, 345, 250, 120, 200, 260, 150.0]))
+    assert list(telemetry.straight_ends(trace)) == [2]
 
 
-def test_strongest_picks_the_biggest_gains_for_each_driver():
-    assert [z.gain for z in telemetry.strongest(ZONES, 2)] == [0.31, 0.18]
-    assert [z.gain for z in telemetry.strongest(ZONES, 2, sign=-1)] == [-0.12, -0.06]
+ZONES = [Zone(0.02, 0, 1), Zone(-0.06, 1, 2), Zone(0.31, 2, 3), Zone(0.09, 3, 4), Zone(-0.12, 4, 5), Zone(0.18, 5, 6)]
 
 
-def test_strongest_ignores_gains_below_the_threshold():
-    assert telemetry.strongest(ZONES, 5, min_gain=0.1) == [Zone(0.31, 4, 5), Zone(0.18, 10, 11)]
+def test_notable_keeps_zones_over_the_threshold_for_either_driver_in_lap_order():
+    assert telemetry.notable(ZONES, 8) == [Zone(-0.06, 1, 2), Zone(0.31, 2, 3), Zone(0.09, 3, 4), Zone(-0.12, 4, 5),
+                                           Zone(0.18, 5, 6)]
+
+
+def test_notable_keeps_the_biggest_when_there_are_too_many():
+    assert telemetry.notable(ZONES, 2) == [Zone(0.31, 2, 3), Zone(0.18, 5, 6)]
 
 
 CORNERS = [(1, 1200.0), (2, 1280.0), (3, 1340.0), (6, 2220.0)]

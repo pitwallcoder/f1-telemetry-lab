@@ -6,6 +6,9 @@ import numpy as np
 MIN_ZONE_GAIN_S = 0.05
 # A rise or fall of the gap smaller than this is treated as noise when finding where it turns.
 TURN_S = 0.025
+# Straight-line time is won slowly and corner time quickly, so zones are also cut where a long straight ends:
+# where the car brakes from above this share of its top speed.
+STRAIGHT_RATIO = 0.8
 # Gaps are only read where 5 m of position error is under ~0.1 s: from ~60% of top speed up.
 MIN_READ_SPEED_RATIO = 0.6
 # At ~4 Hz the gap line jitters in slow corners; 100 m of smoothing halves the spikes without moving it at the
@@ -47,14 +50,20 @@ def measurable(trace):
     return trace.speed >= MIN_READ_SPEED_RATIO * trace.speed.max()
 
 
-def turning_zones(gap, readable, threshold=TURN_S):
-    """Split the lap where the gap turns, reading it only at `readable` points, the lap start and the lap end.
+def straight_ends(trace):
+    """Indices where the car starts braking at the end of a long straight."""
+    fast = trace.speed >= STRAIGHT_RATIO * trace.speed.max()
+    return np.flatnonzero(fast[:-1] & ~fast[1:])
+
+
+def turning_zones(gap, readable, cuts=(), threshold=TURN_S):
+    """Split the lap where the gap turns, reading it only at `readable` points, the lap start and the lap end,
+    and at each of `cuts`.
 
     A turn counts once the gap has moved back by `threshold` from its last extreme, so noise doesn't split a zone.
-    Zones are in lap order; what trimming leaves out of them belongs to the rest of the lap.
+    Zones are in lap order and their gains add up to the lap gap.
     """
-    points = np.flatnonzero(readable)
-    points = np.unique(np.concatenate([[0], points, [len(gap) - 1]]))
+    points = np.unique(np.concatenate([[0], np.flatnonzero(readable), [len(gap) - 1]]))
     turns, extreme, trend = [points[0]], points[0], 0
     for i in points[1:]:
         if trend == 0:
@@ -64,25 +73,14 @@ def turning_zones(gap, readable, threshold=TURN_S):
         elif trend * (gap[extreme] - gap[i]) >= threshold:
             turns.append(extreme)
             trend, extreme = -trend, i
-    turns += [extreme, points[-1]]
-    # Trimming can leave a turn's flat tail, or the lap end repeated, with no length; those drop out.
-    zones = (_trim(gap, points, a, b) for a, b in zip(turns, turns[1:]))
-    return [z for z in zones if z.end > z.start]
+    bounds = np.unique(np.concatenate([turns, [extreme, points[-1]], np.asarray(cuts, dtype=int)]))
+    return [Zone(float(gap[b] - gap[a]), int(a), int(b)) for a, b in zip(bounds, bounds[1:])]
 
 
-def _trim(gap, points, start, end, threshold=TURN_S):
-    """Zone from `start` to `end` without its flat ends: the stretches where the gap stays within `threshold` of
-    its value at the turn. Cut only at readable `points`."""
-    inside = points[(points >= start) & (points <= end)]
-    a = max((p for p in inside if abs(gap[p] - gap[start]) < threshold), default=start)
-    b = min((p for p in inside if p >= a and abs(gap[end] - gap[p]) < threshold), default=end)
-    return Zone(float(gap[b] - gap[a]), int(a), int(b))
-
-
-def strongest(zones, limit, sign=1, min_gain=MIN_ZONE_GAIN_S):
-    """Up to `limit` zones where the faster (sign=1) or slower (sign=-1) car gained at least `min_gain`."""
-    gains = sorted((z for z in zones if sign * z.gain >= min_gain), key=lambda z: sign * z.gain, reverse=True)
-    return gains[:limit]
+def notable(zones, limit, min_gain=MIN_ZONE_GAIN_S):
+    """Zones where either car gained at least `min_gain`, the `limit` biggest of them, in lap order."""
+    big = sorted((z for z in zones if abs(z.gain) >= min_gain), key=lambda z: abs(z.gain), reverse=True)
+    return sorted(big[:limit], key=lambda z: z.start)
 
 
 def zone_name(d_start, d_end, corner_d):

@@ -59,10 +59,10 @@ built, and how it is built decides the precision.
    shared position at its official crossing time, and the gap curve passes exactly through the official sector
    and lap gaps.
 4. **Gap**: time difference at the same track distance, smoothed over 100 m.
-5. **Zones**: the gap is read only where it is measurable (from 60% of top speed up) and the lap is split where
-   it turns, ignoring wiggles under 0.025 s and trimming flat ends. A zone runs from one turn to the next, so it
-   marks where one driver actually took time off the other. The chart shows up to three zones for the faster driver
-   and two for the slower one; the rest adds up to the lap gap.
+5. **Zones**: the lap is split where the gap turns, read only where it is measurable (from 60% of top speed up)
+   and ignoring wiggles under 0.025 s, and also where each long straight ends, since straight-line time builds up
+   slowly and corner time quickly. Every zone where either driver gained 0.05 s or more is shown, named by its
+   corners; the rest adds up to the lap gap.
 
 ### Precision
 

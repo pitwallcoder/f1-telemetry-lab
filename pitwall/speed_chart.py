@@ -14,8 +14,7 @@ from pitwall.circuits import UNITS_PER_M
 from pitwall.telemetry import Trace
 
 FALLBACK_COLOUR = "a1a1aa"
-ZONE_TAGS = "ABCDE"
-FAST_ZONES, SLOW_ZONES = 3, 2
+ZONE_TAGS = "ABCDEFGH"
 PAD_S = 3  # data either side of the lap, so the fit and the finish line are not cut at the edges
 GRID_S = 0.05
 ZONE_INSET_M = 8  # zones touch end to end; a small gap keeps neighbours of the same colour apart
@@ -109,9 +108,8 @@ def compare(session, meeting_name, drivers, best_laps, pair):
     fast, slow = (_driver(drivers[n], run, d) for n, run, d in ((fast_n, fast_run, fast_d), (slow_n, slow_run, slow_d)))
     raw_gap = telemetry.delta(fast.trace, slow.trace)
     gap = distance.pin(fast_d, telemetry.smooth(fast_d, raw_gap), official_gaps)
-    every = telemetry.turning_zones(gap, telemetry.measurable(fast.trace))
-    zones = sorted(telemetry.strongest(every, FAST_ZONES) + telemetry.strongest(every, SLOW_ZONES, sign=-1),
-                   key=lambda z: z.start)
+    every = telemetry.turning_zones(gap, telemetry.measurable(fast.trace), telemetry.straight_ends(fast.trace))
+    zones = telemetry.notable(every, len(ZONE_TAGS))
     corner_d = [(n, float(np.interp(distance.along_lap(s, fast_run.start_s, track.line.length), fast_run.d, fast_d)))
                 for n, s in track.corners]
     where = [telemetry.zone_name(fast.trace.distance[z.start], fast.trace.distance[z.end], corner_d) for z in zones]
