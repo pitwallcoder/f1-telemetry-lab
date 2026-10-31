@@ -39,14 +39,14 @@ def test_cli_prints_and_writes_the_chart_and_its_facts(recorded, tmp_path, capsy
     stem = tmp_path / "pw-001" / "pw-001_2026-mexico-city-practice-1_LEC-vs-ANT"
     assert image.imread(stem.with_name(stem.name + ".png")).shape == (900, 1600, 4)
     assert [line.split() for line in lines[1:-1]] == [
-        ["A", "T1–T3", "LEC", "+0.350s"], ["B", "T4–T6", "ANT", "+0.148s"], ["C", "T10–T11", "LEC", "+0.149s"],
-        ["D", "T12–T16", "LEC", "+0.263s"], ["·", "rest", "of", "lap", "LEC", "+0.045s"], ["=", "lap", "LEC", "+0.659s"]]
+        ["A", "T1–T3", "LEC", "+0.381s"], ["B", "T4–T6", "ANT", "+0.162s"], ["C", "T10–T11", "LEC", "+0.157s"],
+        ["D", "T12–T17", "LEC", "+0.264s"], ["·", "rest", "of", "lap", "LEC", "+0.019s"], ["=", "lap", "LEC", "+0.659s"]]
     assert lines[-1] == "check: position fit ±3.4/2.9 m, cars apart at official lines -0.9, -3.2, -0.3 m (pinned to 0)"
     facts = json.loads(stem.with_name(stem.name + ".json").read_text())
     assert facts["official_gap_s"] == {"lap": 0.659, "sectors": [0.345, 0.06, 0.254]}
     assert [(z["tag"], z["gained_by"], z["seconds"], z["biggest_on_lap"]) for z in facts["zones"]] == [
-        ("A", "LEC", 0.35, True), ("B", "ANT", 0.148, False), ("C", "LEC", 0.149, False), ("D", "LEC", 0.263, False)]
-    assert facts["rest_of_lap"] == {"gained_by": "LEC", "seconds": 0.045}
+        ("A", "LEC", 0.381, True), ("B", "ANT", 0.162, False), ("C", "LEC", 0.157, False), ("D", "LEC", 0.264, False)]
+    assert facts["rest_of_lap"] == {"gained_by": "LEC", "seconds": 0.019}
 
 
 def test_cli_turns_missing_data_into_a_readable_error(recorded):

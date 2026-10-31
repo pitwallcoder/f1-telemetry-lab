@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 
 from pitwall import telemetry
-from pitwall.telemetry import Trace, Zone, braking_points, segments
+from pitwall.telemetry import Trace, Zone
 
 
 def trace(t, distance):
@@ -24,54 +24,38 @@ def test_smooth_keeps_flat_parts_and_ends_and_softens_a_step():
     assert 0.15 < np.interp(500, d, smoothed) < 0.25
 
 
-def profile(points, step=5.0):
-    """Trace through (distance, speed) corners of a piecewise-linear speed profile."""
-    d = np.arange(0, points[-1][0] + step, step)
-    v = np.interp(d, [p[0] for p in points], [p[1] for p in points])
-    return Trace(np.cumsum(np.concatenate([[0], np.diff(d) / (v[1:] / 3.6)])), d, v)
+def test_measurable_is_the_fast_part_of_the_lap():
+    trace = Trace(None, np.arange(5.0), np.array([300.0, 250.0, 179.0, 180.0, 100.0]))
+    assert list(telemetry.measurable(trace)) == [True, True, False, True, False]
 
 
-# A hard stop from 330 at 800 m, another from 300 at 1500 m, then a chicane braked from only 180 km/h.
-LAP = profile([(0, 280), (700, 330), (800, 330), (900, 100), (1300, 300), (1500, 300), (1600, 150),
-               (1700, 180), (1750, 110), (1900, 260), (2500, 300)])
+def readable_everywhere(gap):
+    return np.ones(len(gap), dtype=bool)
 
 
-def at(trace, metres):
-    return int(np.argmin(np.abs(trace.distance - metres)))
+def test_turning_zones_follow_rises_and_falls_and_add_up_to_the_lap():
+    gap = np.array([0.0, 0.1, 0.3, 0.4, 0.3, 0.2, 0.25, 0.5])
+    zones = telemetry.turning_zones(gap, readable_everywhere(gap))
+    assert [(z.start, z.end, round(z.gain, 3)) for z in zones] == [(0, 3, 0.4), (3, 5, -0.2), (5, 7, 0.3)]
+    assert round(sum(z.gain for z in zones), 3) == gap[-1]
 
 
-def test_braking_points_are_the_top_of_each_hard_stop():
-    assert [round(LAP.distance[i]) for i in braking_points(LAP)] == [800, 1500, 1700]
+def test_turning_zones_ignore_wiggles_smaller_than_the_threshold():
+    gap = np.array([0.0, 0.2, 0.19, 0.21, 0.4])
+    assert [(z.start, z.end) for z in telemetry.turning_zones(gap, readable_everywhere(gap))] == [(0, 4)]
 
 
-def test_braking_points_ignore_drag_on_a_long_straight():
-    straight = profile([(0, 300), (600, 345), (900, 330), (1000, 120), (1300, 300)])
-    points = [round(straight.distance[i]) for i in braking_points(straight)]
-    assert len(points) == 1 and 700 <= points[0] <= 900
+def test_turning_zones_never_cut_at_an_unreadable_point():
+    gap = np.array([0.0, 0.05, 0.4, -0.1, 0.39, 0.5, 0.5])  # the -0.1 dip sits in a slow corner
+    readable = np.array([True, True, True, False, True, True, True])
+    zones = telemetry.turning_zones(gap, readable)
+    assert [(z.start, z.end, round(z.gain, 3)) for z in zones] == [(0, 5, 0.5)]
 
 
-def test_segments_cover_the_whole_lap_and_skip_slow_braking_points():
-    bounds = segments(LAP)
-    assert bounds[0][0] == 0 and bounds[-1][1] == len(LAP.distance) - 1
-    assert all(a[1] == b[0] for a, b in zip(bounds, bounds[1:]))
-    assert [round(LAP.distance[s]) for s, _ in bounds] == [0, 800, 1500]
-
-
-def test_segment_zones_measure_net_change_so_a_spike_given_back_does_not_count():
-    gap = np.zeros_like(LAP.distance)
-    gap[at(LAP, 850):] += 0.30   # kept: stop at 800 m
-    gap[at(LAP, 1550):] -= 0.02  # lost at 1500 m; same segment as the chicane, braked from too slow to split
-    gap[at(LAP, 1760):] += 0.10  # kept: chicane
-    gap[at(LAP, 1740):at(LAP, 1770)] += 0.4  # a braking-zone spike that is given back
-    zones = telemetry.segment_zones(LAP, gap)
-    assert [round(z.gain, 3) for z in zones] == [0.0, 0.3, 0.08]
-    assert round(sum(z.gain for z in zones), 3) == round(gap[-1], 3)
-
-
-def test_segment_zones_shade_braking_and_corner_not_the_next_straight():
-    zone = telemetry.segment_zones(LAP, np.where(LAP.distance > 850, 0.3, 0.0))[1]
-    assert round(LAP.distance[zone.start]) == 800
-    assert 900 < LAP.distance[zone.end] < 1300
+def test_turning_zones_drop_flat_ends():
+    gap = np.array([0.0, 0.01, 0.02, 0.2, 0.39, 0.4, 0.4])
+    zone, = telemetry.turning_zones(gap, readable_everywhere(gap))
+    assert (zone.start, zone.end, round(zone.gain, 3)) == (2, 4, 0.37)
 
 
 # In lap order, with the biggest gains of each driver not first.

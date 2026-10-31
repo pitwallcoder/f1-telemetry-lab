@@ -18,6 +18,7 @@ ZONE_TAGS = "ABCDE"
 FAST_ZONES, SLOW_ZONES = 3, 2
 PAD_S = 3  # data either side of the lap, so the fit and the finish line are not cut at the edges
 GRID_S = 0.05
+ZONE_INSET_M = 8  # zones touch end to end; a small gap keeps neighbours of the same colour apart
 
 
 @dataclass(frozen=True)
@@ -108,7 +109,7 @@ def compare(session, meeting_name, drivers, best_laps, pair):
     fast, slow = (_driver(drivers[n], run, d) for n, run, d in ((fast_n, fast_run, fast_d), (slow_n, slow_run, slow_d)))
     raw_gap = telemetry.delta(fast.trace, slow.trace)
     gap = distance.pin(fast_d, telemetry.smooth(fast_d, raw_gap), official_gaps)
-    every = telemetry.segment_zones(fast.trace, gap)
+    every = telemetry.turning_zones(gap, telemetry.measurable(fast.trace))
     zones = sorted(telemetry.strongest(every, FAST_ZONES) + telemetry.strongest(every, SLOW_ZONES, sign=-1),
                    key=lambda z: z.start)
     corner_d = [(n, float(np.interp(distance.along_lap(s, fast_run.start_s, track.line.length), fast_run.d, fast_d)))
@@ -168,6 +169,11 @@ def zone_colour(comparison, zone):
     return f"#{(comparison.fast if zone.gain > 0 else comparison.slow).colour}"
 
 
+def _inset(comparison, zone):
+    d = comparison.fast.trace.distance
+    return d[zone.start] + ZONE_INSET_M, d[zone.end] - ZONE_INSET_M
+
+
 def render(comparison, code):
     c = comparison
     fig = style.figure()
@@ -175,8 +181,10 @@ def render(comparison, code):
     _timing_header(fig, c)
     speed_ax = _speed_panel(fig, c)
     _gap_panel(fig, c, speed_ax)
-    zone_masks = [(tag, (c.track.t >= c.fast.trace.t[z.start]) & (c.track.t <= c.fast.trace.t[z.end]), zone_colour(c, z))
-                  for tag, z in zip(ZONE_TAGS, c.zones)]
+    zone_masks = []
+    for tag, z in zip(ZONE_TAGS, c.zones):
+        start, end = np.interp(_inset(c, z), c.fast.trace.distance, c.fast.trace.t)
+        zone_masks.append((tag, (c.track.t >= start) & (c.track.t <= end), zone_colour(c, z)))
     style.track_map(fig, [0.78, 0.46, 0.19, 0.30], c.track.x, c.track.y, zone_masks, c.track.finish, c.track.rotation)
     _gain_table(fig, c)
     style.footer(fig, "data: OpenF1 · track & corners: MultiViewer")
@@ -203,7 +211,7 @@ def _speed_panel(fig, c):
     ax = fig.add_axes([0.06, 0.39, 0.68, 0.37])
     style.style_axes(ax)
     for z in c.zones:
-        style.highlight(ax, c.fast.trace.distance[z.start], c.fast.trace.distance[z.end], zone_colour(c, z))
+        style.highlight(ax, *_inset(c, z), zone_colour(c, z))
     # Team-mates share a colour, so the slower one gets a dashed line.
     slow_dash = "--" if c.slow.colour.lower() == c.fast.colour.lower() else "-"
     for driver, dash in ((c.fast, "-"), (c.slow, slow_dash)):
@@ -222,12 +230,12 @@ def _gap_panel(fig, c, speed_ax):
     distance_m = c.fast.trace.distance
     for tag, z in zip(ZONE_TAGS, c.zones):
         colour = zone_colour(c, z)
-        style.highlight(ax, distance_m[z.start], distance_m[z.end], colour)
+        style.highlight(ax, *_inset(c, z), colour)
         ax.annotate(tag, xy=((distance_m[z.start] + distance_m[z.end]) / 2, 1),
                     xycoords=("data", "axes fraction"), xytext=(0, 4), textcoords="offset points",
                     ha="center", va="bottom", color=colour, fontsize=9, fontweight="bold")
     # Below this speed a few metres of position error is worth tenths: draw that part of the line faded.
-    reliable = c.fast.trace.speed >= telemetry.MIN_READ_SPEED_RATIO * c.fast.trace.speed.max()
+    reliable = telemetry.measurable(c.fast.trace)
     ax.plot(distance_m, c.gap, color=style.TEXT, linewidth=1.4, alpha=0.3)
     ax.plot(distance_m, np.where(reliable, c.gap, np.nan), color=style.TEXT, linewidth=1.4)
     ax.axhline(0, color=style.FAINT, linewidth=0.8)

@@ -4,8 +4,8 @@ from dataclasses import dataclass
 import numpy as np
 
 MIN_ZONE_GAIN_S = 0.05
-BRAKE_DROP_KMH = 40
-BRAKE_LOOKAHEAD_M = 150
+# A rise or fall of the gap smaller than this is treated as noise when finding where it turns.
+TURN_S = 0.025
 # Gaps are only read where 5 m of position error is under ~0.1 s: from ~60% of top speed up.
 MIN_READ_SPEED_RATIO = 0.6
 # At ~4 Hz the gap line jitters in slow corners; 100 m of smoothing halves the spikes without moving it at the
@@ -42,53 +42,41 @@ def smooth(distance, values, window_m=GAP_SMOOTHING_M):
     return np.interp(distance, grid, averaged)
 
 
-def braking_points(trace):
-    """Top-speed index of each braking zone: a run of points from which speed drops hard within a short distance.
+def measurable(trace):
+    """Points fast enough for the gap to be read reliably."""
+    return trace.speed >= MIN_READ_SPEED_RATIO * trace.speed.max()
 
-    The top of the run, not of the whole straight: drag can bleed off speed well before the driver brakes.
+
+def turning_zones(gap, readable, threshold=TURN_S):
+    """Split the lap where the gap turns, reading it only at `readable` points, the lap start and the lap end.
+
+    A turn counts once the gap has moved back by `threshold` from its last extreme, so noise doesn't split a zone.
+    Zones are in lap order; what trimming leaves out of them belongs to the rest of the lap.
     """
-    d, v = trace.distance, trace.speed
-    braking = np.array([v[(d > d[i]) & (d <= d[i] + BRAKE_LOOKAHEAD_M)].min(initial=v[i]) <= v[i] - BRAKE_DROP_KMH
-                        for i in range(len(d))])
-    starts = np.flatnonzero(braking & ~np.concatenate([[False], braking[:-1]]))
-    ends = np.flatnonzero(braking & ~np.concatenate([braking[1:], [False]]))
-    runs = (part for s, e in zip(starts, ends) for part in _split_at_reacceleration(v, s, e))
-    # Last of equal maxima: the point right before the driver brakes.
-    return [int(e - np.argmax(v[s:e + 1][::-1])) for s, e in runs]
+    points = np.flatnonzero(readable)
+    points = np.unique(np.concatenate([[0], points, [len(gap) - 1]]))
+    turns, extreme, trend = [points[0]], points[0], 0
+    for i in points[1:]:
+        if trend == 0:
+            trend, extreme = np.sign(gap[i] - gap[extreme]), i
+        elif trend * (gap[i] - gap[extreme]) > 0:
+            extreme = i
+        elif trend * (gap[extreme] - gap[i]) >= threshold:
+            turns.append(extreme)
+            trend, extreme = -trend, i
+    turns += [extreme, points[-1]]
+    # Trimming can leave a turn's flat tail, or the lap end repeated, with no length; those drop out.
+    zones = (_trim(gap, points, a, b) for a, b in zip(turns, turns[1:]))
+    return [z for z in zones if z.end > z.start]
 
 
-def _split_at_reacceleration(v, start, end):
-    """Two stops close together form one braking run; cut it where the car clearly speeds up again."""
-    cuts = [i for i in range(start + 1, end)
-            if v[i] < v[i - 1] and v[i] <= v[i + 1] and v[i:end + 1].max() - v[i] >= BRAKE_DROP_KMH / 2]
-    bounds = [start, *cuts, end]
-    return list(zip(bounds, bounds[1:]))
-
-
-def segments(trace):
-    """Braking point to braking point, covering the whole lap.
-
-    The gap is only read where both cars are flat out: in braking zones and corners it swings with
-    where each driver brakes, so a peak there says nothing about the time actually kept.
-    """
-    fast_enough = MIN_READ_SPEED_RATIO * trace.speed.max()
-    inner = (i for i in braking_points(trace) if 0 < i < len(trace.distance) - 1 and trace.speed[i] >= fast_enough)
-    bounds = [0, *inner, len(trace.distance) - 1]
-    return list(zip(bounds, bounds[1:]))
-
-
-def corner_phase_end(speed, start, end):
-    """Last point of a segment still below halfway between its slowest corner and the next straight's top speed."""
-    threshold = (speed[start:end + 1].min() + speed[end]) / 2
-    slow = np.flatnonzero(speed[start:end + 1] < threshold)
-    return start + int(slow[-1]) + 1 if len(slow) else end
-
-
-def segment_zones(trace, gap):
-    """Every segment as a zone, in lap order: net gap change over the segment (positive: the faster car gained),
-    spanning the braking-and-corner part for shading."""
-    return [Zone(float(gap[end] - gap[start]), start, corner_phase_end(trace.speed, start, end))
-            for start, end in segments(trace)]
+def _trim(gap, points, start, end, threshold=TURN_S):
+    """Zone from `start` to `end` without its flat ends: the stretches where the gap stays within `threshold` of
+    its value at the turn. Cut only at readable `points`."""
+    inside = points[(points >= start) & (points <= end)]
+    a = max((p for p in inside if abs(gap[p] - gap[start]) < threshold), default=start)
+    b = min((p for p in inside if p >= a and abs(gap[end] - gap[p]) < threshold), default=end)
+    return Zone(float(gap[b] - gap[a]), int(a), int(b))
 
 
 def strongest(zones, limit, sign=1, min_gain=MIN_ZONE_GAIN_S):

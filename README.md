@@ -59,9 +59,10 @@ built, and how it is built decides the precision.
    shared position at its official crossing time, and the gap curve passes exactly through the official sector
    and lap gaps.
 4. **Gap**: time difference at the same track distance, smoothed over 100 m.
-5. **Zones**: the lap is cut at each braking point from at least 60% of top speed, where the gap is stable. A zone
-   is the net gap change over its segment, so time won under braking and given back on exit does not count. The
-   chart shows up to three zones for the faster driver and two for the slower one; the rest adds up to the lap gap.
+5. **Zones**: the gap is read only where it is measurable (from 60% of top speed up) and the lap is split where
+   it turns, ignoring wiggles under 0.025 s and trimming flat ends. A zone runs from one turn to the next, so it
+   marks where one driver actually took time off the other. The chart shows up to three zones for the faster driver
+   and two for the slower one; the rest adds up to the lap gap.
 
 ### Precision
 
@@ -77,7 +78,8 @@ For comparison, integrating speed alone (what most tools do) measured a median o
 
 - Sector and lap gaps are official and exact. Zone gains are good to about **±0.05 s**: shown with 3 decimals so
   the column adds up, read them as hundredths.
-- Inside slow corners the gap line can swing ±0.2 s from noise, so the chart draws it faded there.
+- Inside slow corners the gap line can swing ±0.2 s from noise at 4 Hz, so the chart draws it faded there and
+  zones are only cut where the gap is measurable.
 - When a session's data is noisier than 90% of those 15, the command prints a warning.
 - Tried and rejected, with numbers: aligning on corners (no gain), matching raw positions (0.10 s), integrating
   the pace difference (0.09 s, 2.3 s worst), weighting positions by speed (no gain).
