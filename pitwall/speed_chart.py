@@ -3,7 +3,6 @@
 The chart only states measured facts; interpretation belongs in the post that shares it.
 """
 import json
-import re
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -67,8 +66,7 @@ class Comparison:
 
     @property
     def slug(self):
-        s = self.session
-        return re.sub(r"[^a-z0-9]+", "-", f"{s['year']} {s['circuit_short_name']} {s['session_name']}".lower()).strip("-")
+        return openf1.slug(self.session)
 
     def sector_gaps(self):
         return [self.slow.lap[f"duration_sector_{i}"] - self.fast.lap[f"duration_sector_{i}"] for i in (1, 2, 3)]
