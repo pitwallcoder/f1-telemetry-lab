@@ -84,6 +84,19 @@ For comparison, integrating speed alone (what most tools do) measured a median o
 - Tried and rejected, with numbers: aligning on corners (no gain), matching raw positions (0.10 s), integrating
   the pace difference (0.09 s, 2.3 s worst), weighting positions by speed (no gain).
 
+## Qualifying ladder
+
+Every driver's gap to pole in a qualifying (`Q`, default) or sprint qualifying (`SQ`) session, sector by sector.
+
+```bash
+uv run python -m pitwall.quali_ladder 2026 "Mexico City" --code PW-003
+```
+
+Official timing only, so every number is exact. Drivers are in official order; each one's time is the one that
+classified them, from the last part of qualifying they set a time in (a dotted line marks where that changes from
+Q3 to Q2 and Q1). Each bar is the lap gap; beside it sit the lap time and each sector minus pole's, with sectors
+faster than pole's in white. Writes a PNG and a JSON with the same facts to `out/<code>/`.
+
 ## Development
 
 ```bash
