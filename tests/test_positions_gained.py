@@ -22,3 +22,9 @@ def test_headline_names_the_biggest_gain_to_the_chosen_moment():
         "Lawson gained the most places by the flag: P22 to P7"
     assert positions_gained.headline(drivers, found, positions_gained.LAP_ONE) == \
         "Lawson gained the most places on the opening lap: P22 to P21"
+
+
+def test_headline_says_so_when_nobody_gained_a_place():
+    found = [Gain(1, grid=1, lap_one=1, finish=1), Gain(4, grid=2, lap_one=2, finish=2)]
+    assert positions_gained.headline({1: {}, 4: {}}, found, positions_gained.LAP_ONE) == \
+        "Nobody gained a place on the opening lap"

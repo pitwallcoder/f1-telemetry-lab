@@ -39,6 +39,8 @@ GAINED, LOST = "#22c55e", "#ef4444"
 
 def headline(drivers, found, until):
     best = found[0]
+    if best.grid <= _end(best, until):
+        return f"Nobody gained a place {until}"
     return f"{style.surname(drivers[best.driver])} gained the most places {until}: P{best.grid} to P{_end(best, until)}"
 
 
