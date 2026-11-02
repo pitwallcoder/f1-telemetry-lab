@@ -38,8 +38,8 @@ def representative_laps(laps, pits, excluded, compounds):
     return out
 
 
-def fuel_corrected(seconds, lap, total_laps, s_per_lap=FUEL_S_PER_LAP):
-    return seconds - s_per_lap * (total_laps - lap)
+def fuel_corrected(seconds, lap, total_laps):
+    return seconds - FUEL_S_PER_LAP * (total_laps - lap)
 
 
 def driver_pace(driver, laps, total_laps):
