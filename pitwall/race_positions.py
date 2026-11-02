@@ -53,6 +53,12 @@ def chart(r):
                  second_drivers(r.drivers, starting_grid))
 
 
+def road_finish(c, driver):
+    """Where a classified driver crossed the line on his last lap, lapped or not; None for a retirement."""
+    places = c.places[driver]
+    return places[max(places)] if driver in c.classified else None
+
+
 def finish_label(c, driver, road_position):
     """Official position, starred when a penalty dropped the driver below where he crossed the line."""
     official = c.classified.get(driver, road_position)
@@ -77,7 +83,7 @@ def render(c):
     ax.set_xticklabels(["Grid", *[f"L{k}" for k in range(5, last, 5)]], fontweight="semibold", fontsize=9)
     fig.text(0.925, 0.03, "position at the end of every lap (official timing) · circles = tyre fitted · shaded = VSC / SC / "
              "red flag · dashed = second driver of the team · × = retired", color=style.FAINT, fontsize=8.5, ha="right")
-    if any(finish_label(c, d, p[last]).endswith("*") for d, p in c.places.items() if last in p):
+    if any(finish_label(c, d, road_finish(c, d)).endswith("*") for d in c.places if d in c.classified):
         fig.text(0.075, 0.03, "Right: official classification. *Crossed the line higher, dropped by a time penalty.",
                  color=style.FAINT, fontsize=8.5)
     return fig
@@ -97,7 +103,7 @@ def _driver_line(ax, c, driver, last):
             zorder=3, solid_joinstyle="round", dash_joinstyle="round")
     label = {"color": colour, "fontsize": 9.5, "fontweight": "bold", "va": "center"}
     ax.text(-1.2, y[0], f"P{y[0]} {info['name_acronym']}", ha="right", **label)
-    if laps[-1] == last:
+    if driver in c.classified:
         ax.text(last + 1.2, y[-1], f"{info['name_acronym']} {finish_label(c, driver, y[-1])}", **label)
     else:
         ax.scatter([laps[-1]], [y[-1]], marker="x", s=36, color=style.TEXT, linewidths=1.3, zorder=5)
@@ -119,7 +125,7 @@ def facts(c, code):
     return {
         "code": code, "event": c.race.meeting_name, "session": s["session_name"], "year": s["year"],
         "laps": last,
-        "drivers": [{"name": names[d], "grid": p[0], "last_lap": max(p), "road_finish": p.get(last),
+        "drivers": [{"name": names[d], "grid": p[0], "last_lap": max(p), "road_finish": road_finish(c, d),
                      "classified": c.classified.get(d), "places": [p[k] for k in sorted(p)]} for d, p in c.places.items()],
         "neutralisations": [{"kind": p.kind, "first_lap": p.first_lap, "last_lap": p.last_lap} for p in c.periods],
         "tyres": [{"driver": names.get(d, str(d)), "fitted_after_lap": lap, "compound": comp} for d, lap, comp in c.tyres],

@@ -26,3 +26,13 @@ def test_finish_label_stars_a_driver_a_penalty_dropped_below_his_road_position()
     assert race_positions.finish_label(c, 81, 7) == "P13*"
     assert race_positions.finish_label(c, 43, 8) == "P7"
     assert race_positions.finish_label(c, 99, 5) == "P5"
+
+
+def test_a_lapped_classified_driver_is_a_finisher_not_a_retirement():
+    r = race.Race({"session_name": "Race", "year": 2026}, "Test GP",
+                  {1: {"name_acronym": "VER"}, 2: {"name_acronym": "ALB"}, 3: {"name_acronym": "STR"}},
+                  [], [], [], [], [], [])
+    places = {1: {0: 1, 1: 1, 2: 1, 3: 1}, 2: {0: 2, 1: 2, 2: 2}, 3: {0: 3, 1: 3}}
+    c = race_positions.Chart(r, places, [], [], {1: 1, 2: 2}, set())
+    finish = {d["name"]: d["road_finish"] for d in race_positions.facts(c, "PW-TEST")["drivers"]}
+    assert finish == {"VER": 1, "ALB": 2, "STR": None}
