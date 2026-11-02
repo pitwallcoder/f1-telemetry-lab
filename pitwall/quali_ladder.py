@@ -35,9 +35,8 @@ def ladder(results, laps, drivers, segments=SEGMENTS):
             continue
         segment, seconds = timed[-1]
         number = result["driver_number"]
-        lap = next((lap for lap in reversed(laps) if lap["driver_number"] == number and lap.get("lap_duration")
-                    and abs(lap["lap_duration"] - seconds) < 0.0005
-                    and all(lap.get(f"duration_sector_{i}") for i in (1, 2, 3))), None)
+        lap = next((lap for lap in reversed(laps) if lap["driver_number"] == number and openf1.complete(lap)
+                    and openf1.same_lap_time(lap["lap_duration"], seconds)), None)
         info = drivers.get(number, {})
         name = info.get("name_acronym", str(number))
         if lap is None:

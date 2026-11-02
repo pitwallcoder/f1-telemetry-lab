@@ -65,6 +65,15 @@ def find_session(year, circuit, code):
     return match_session(get("sessions", year=year), circuit, code, datetime.now(timezone.utc))
 
 
+def complete(lap):
+    return bool(lap.get("lap_duration")) and all(lap.get(f"duration_sector_{i}") for i in (1, 2, 3))
+
+
+def same_lap_time(seconds, other):
+    """Equal to the millisecond, the precision of official timing."""
+    return abs(seconds - other) < 0.0005
+
+
 def _lap_verdict(message):
     """(car, deleted time or None, lap number in the message or None, verb) for a lap deletion or reinstatement.
 
@@ -93,7 +102,7 @@ def _lap_number(car_laps, deleted_time, message_lap):
     expected = message_lap - 1 if message_lap else None
     if deleted_time is None:
         return expected
-    same_time = [lap["lap_number"] for lap in car_laps if abs(lap["lap_duration"] - deleted_time) < 0.0005]
+    same_time = [lap["lap_number"] for lap in car_laps if same_lap_time(lap["lap_duration"], deleted_time)]
     return expected if expected in same_time else next(iter(same_time), None)
 
 
@@ -121,8 +130,7 @@ def fastest_valid_laps(laps, deleted):
     best = {}
     for lap in laps:
         key = (lap["driver_number"], lap["lap_number"])
-        complete = lap.get("lap_duration") and all(lap.get(f"duration_sector_{i}") for i in (1, 2, 3))
-        if not complete or key in deleted:
+        if not complete(lap) or key in deleted:
             continue
         if lap["driver_number"] not in best or lap["lap_duration"] < best[lap["driver_number"]]["lap_duration"]:
             best[lap["driver_number"]] = lap
