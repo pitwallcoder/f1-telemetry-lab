@@ -96,7 +96,7 @@ def from_session(year, circuit, session_code, wanted_drivers=()):
 def compare(session, meeting_name, drivers, best_laps, pair):
     fast_n, slow_n = sorted(pair, key=lambda n: best_laps[n]["lap_duration"])
     track = circuits.circuit(session["circuit_key"], session["year"])
-    fast_run, slow_run = (_run(session, best_laps[n], track.line) for n in (fast_n, slow_n))
+    fast_run, slow_run = (lap_run(session, best_laps[n], track.line) for n in (fast_n, slow_n))
     fast_d, slow_d, official_gaps, disagreement = _pin_to_official_lines(fast_run, slow_run)
     fast, slow = (_driver(drivers[n], run, d) for n, run, d in ((fast_n, fast_run, fast_d), (slow_n, slow_run, slow_d)))
     raw_gap = telemetry.delta(fast.trace, slow.trace)
@@ -111,7 +111,7 @@ def compare(session, meeting_name, drivers, best_laps, pair):
                       _track_map(fast_run, track.rotation), quality)
 
 
-def _run(session, lap, line):
+def lap_run(session, lap, line):
     t_car, car = openf1.lap_samples("car_data", session, lap, pad_s=PAD_S)
     t_pos, positions = openf1.lap_samples("location", session, lap, pad_s=PAD_S)
     speed = np.array([c["speed"] for c in car], dtype=float)
@@ -130,19 +130,21 @@ def _crossings(lap):
     return [s1, s1 + s2, lap["lap_duration"]]
 
 
-def _pin_to_official_lines(a, b):
-    """Both cars cross the same timing lines: hold each at the lines' shared position at its official times.
+def pin_to_shared_lines(runs):
+    """Every car crosses the same timing lines: hold each run at the lines' shared position (the mean of where the
+    runs put them) at its official crossing times. Returns the pinned distances and the shared line positions."""
+    at_lines = np.array([[float(np.interp(t, r.t, r.d)) for t in _crossings(r.lap)] for r in runs])
+    shared = at_lines.mean(axis=0)
+    pinned = [distance.pin(r.t, r.d, [(0.0, 0.0), *zip(_crossings(r.lap), shared)]) for r in runs]
+    return pinned, at_lines, shared
 
-    Also returns the official gap at each line, as (distance, seconds), for the gap curve to pass through.
-    """
-    anchors_a, anchors_b, gaps, disagreement = [(0.0, 0.0)], [(0.0, 0.0)], [(0.0, 0.0)], []
-    for ta, tb in zip(_crossings(a.lap), _crossings(b.lap)):
-        da, db = float(np.interp(ta, a.t, a.d)), float(np.interp(tb, b.t, b.d))
-        disagreement.append(round(db - da, 1))
-        anchors_a.append((ta, (da + db) / 2))
-        anchors_b.append((tb, (da + db) / 2))
-        gaps.append(((da + db) / 2, tb - ta))
-    return distance.pin(a.t, a.d, anchors_a), distance.pin(b.t, b.d, anchors_b), gaps, tuple(disagreement)
+
+def _pin_to_official_lines(a, b):
+    """Both runs pinned to the shared lines, plus the official gap at each line, as (distance, seconds), for the gap
+    curve to pass through, and how far apart the runs put each line before pinning."""
+    (da, db), at_lines, shared = pin_to_shared_lines([a, b])
+    gaps = [(0.0, 0.0)] + [(float(d), tb - ta) for d, ta, tb in zip(shared, _crossings(a.lap), _crossings(b.lap))]
+    return da, db, gaps, tuple(round(float(y - x), 1) for x, y in zip(*at_lines))
 
 
 def _driver(info, run, d):

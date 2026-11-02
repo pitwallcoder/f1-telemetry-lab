@@ -23,7 +23,7 @@ SESSIONS = [
 def held_out_errors(session, best, fast_n, slow_n):
     """Gap error at each sector line when that line is left out of the pinning."""
     line = circuits.circuit(session["circuit_key"], session["year"]).line
-    a, b = (speed_chart._run(session, best[n], line) for n in (fast_n, slow_n))
+    a, b = (speed_chart.lap_run(session, best[n], line) for n in (fast_n, slow_n))
     ca, cb = speed_chart._crossings(a.lap), speed_chart._crossings(b.lap)
     errors = []
     for checked, kept in ((0, 1), (1, 0)):
