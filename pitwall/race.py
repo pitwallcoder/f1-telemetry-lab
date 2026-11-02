@@ -118,8 +118,11 @@ def unrepresentative_laps(laps, periods):
 
 
 def classification(result):
-    """driver -> official finishing position (after penalties); unclassified drivers are left out."""
-    return {r["driver_number"]: r["position"] for r in result if r.get("position")}
+    """driver -> official finishing position (after penalties); unclassified drivers are left out.
+
+    OpenF1 sometimes puts a status such as "RT" where the position goes; that driver is unclassified too.
+    """
+    return {r["driver_number"]: r["position"] for r in result if isinstance(r.get("position"), int)}
 
 
 def compound_by_lap(stints):

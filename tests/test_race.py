@@ -78,3 +78,8 @@ def test_a_repeated_start_message_does_not_open_a_second_period():
     messages = [message(1, 10, "RED FLAG - RACE SUSPENDED"), message(2, 10, "RED FLAG - RACE SUSPENDED"),
                 message(3, 12, "SESSION STARTED")]
     assert race.neutralisations(messages) == [race.Neutralisation("RED", 10, 12)]
+
+
+def test_a_non_numeric_position_like_rt_counts_as_unclassified():
+    result = [{"driver_number": 3, "position": 1}, {"driver_number": 55, "position": "RT"}]
+    assert race.classification(result) == {3: 1}
