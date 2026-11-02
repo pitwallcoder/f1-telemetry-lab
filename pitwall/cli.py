@@ -5,10 +5,11 @@ import sys
 from pitwall import openf1
 
 
-def parser(prog, doc, code_example):
+def parser(prog, doc, code_example, circuit=True):
     p = argparse.ArgumentParser(prog=prog, description=doc, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("year", type=int)
-    p.add_argument("circuit", help="official circuit short name, e.g. 'Mexico City', Monza")
+    if circuit:
+        p.add_argument("circuit", help="official circuit short name, e.g. 'Mexico City', Monza")
     p.add_argument("--code", default="PW-DRAFT", help=f"series code for the chart and its folder, e.g. {code_example}")
     p.add_argument("--out", default="out")
     return p

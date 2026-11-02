@@ -129,6 +129,20 @@ on board, a typical estimate rather than a measured figure, so medians are estim
 
 The shared lap-by-lap logic is in `pitwall/race.py`; each chart module only turns it into a picture.
 
+## Teammate head-to-head
+
+Who was classified ahead of his teammate, round by round, over a season: qualifying (`Q`) or the race (`R`).
+
+```bash
+uv run python -m pitwall.head_to_head 2026 Q --code PW-011
+uv run python -m pitwall.head_to_head 2026 R --code PW-012
+```
+
+Teammates are paired per round from that weekend's entry list, so mid-season seat swaps get their own row. A
+classified driver beats an unclassified teammate (DNF, DSQ, no time); rounds where neither is classified don't
+count. Qualifying adds the median gap, taken in the last part of qualifying (Q3, else Q2, else Q1) both drivers
+set a time in. Cancelled rounds and rounds with no published result are skipped.
+
 ## Development
 
 ```bash
