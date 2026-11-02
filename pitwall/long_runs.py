@@ -52,23 +52,37 @@ def ranking(laps, stints, messages):
     return sorted(found, key=lambda r: r.pace.median)
 
 
-def render(title, drivers, found):
-    fig = style.race_figure(title)
-    paces = [r.pace for r in found]
-    race_pace.boxes(fig, drivers, paces)
-    fig.text(0.03, 0.18, "median", color=style.FAINT, fontsize=8.5)
-    fig.text(0.03, 0.15, "deg/lap", color=style.FAINT, fontsize=8.5)
-    for i, r in enumerate(found):
-        x, info = race_pace.column_x(i, len(found)), drivers[r.driver]
-        fig.text(x, 0.215, info["name_acronym"], color=style.team_colour(info), fontsize=11.5, fontweight="bold",
-                 ha="center")
-        fig.text(x, 0.18, style.lap_time(r.pace.median), color=style.TEXT, fontsize=9.5, ha="center",
-                 family=style.DIGITS)
-        fig.text(x, 0.15, f"{r.degradation:+.3f}", color=style.MUTED, fontsize=9.5, ha="center", family=style.DIGITS)
-        fig.text(x, 0.12, f"{len(r.pace.laps)} laps", color=style.FAINT, fontsize=8, ha="center")
-    race_pace.legend(fig, paces, "Each driver's longest stint at race pace, no out-laps or laps 3% slower than its fastest. "
-                     f"Fuel-corrected at ~{race_pace.FUEL_S_PER_LAP} s/lap within the run; fuel loads and engine "
-                     "modes are unknown, so compare with care.")
+def headline(drivers, found):
+    return f"{style.surname(drivers[found[0].driver])} had the best race pace on the long runs"
+
+
+def render(context, drivers, found):
+    fig = style.story_figure(headline(drivers, found), context,
+                             "Average lap on each driver's longest run at race pace, adjusted for fuel · "
+                             "tyre wear: time lost per lap as the tyres age")
+    best, rows = found[0].pace.median, []
+    for r in found:
+        info, gap = drivers[r.driver], r.pace.median - best
+        rows.append((info, [
+            (0, style.surname(info), style.TEXT, {"fontweight": "bold"}),
+            (0.17, style.lap_time(r.pace.median), style.TEXT, {"family": style.DIGITS, "ha": "right", "fontweight": "bold"}),
+            (0.235, "fastest" if r is found[0] else f"+{gap:.3f}", style.PURPLE if r is found[0] else style.MUTED,
+             {"family": style.DIGITS, "ha": "right", "fontsize": 12}),
+            (0.255, "●", style.TYRES.get(r.compound, style.MUTED), {"family": "DejaVu Sans", "fontsize": 14}),
+            (0.275, f"{len(r.pace.laps)} laps", style.MUTED, {"fontsize": 11}),
+            (0.385, f"{r.degradation:+.2f} s/lap", style.MUTED, {"family": style.DIGITS, "ha": "right", "fontsize": 12}),
+        ]))
+    style.tower(fig, rows, top=0.7)
+    for x in (0.05, 0.53):
+        for dx, label, align in ((0.197, "AVERAGE", "right"), (0.262, "GAP", "right"), (0.282, "TYRE", "left"),
+                                 (0.412, "TYRE WEAR", "right")):
+            fig.text(x + dx, 0.755, label, color=style.FAINT, fontsize=8.5, fontweight="bold", ha=align)
+    used = [c for c in style.TYRES if c in {r.compound for r in found}]
+    for k, compound in enumerate(used):
+        fig.text(0.05 + k * 0.08, 0.04, "●", color=style.TYRES[compound], fontsize=12, family="DejaVu Sans")
+        fig.text(0.064 + k * 0.08, 0.042, compound.title(), color=style.MUTED, fontsize=10)
+    fig.text(0.95, 0.04, "Practice: fuel loads and engine modes are unknown, so this is a guide, not a result · "
+             "data: OpenF1", color=style.FAINT, fontsize=9, ha="right")
     return fig
 
 
