@@ -13,3 +13,12 @@ def test_gains_rank_most_places_gained_first_then_by_finish():
 
 def test_a_driver_with_no_grid_record_is_left_out():
     assert positions_gained.gains({1: 1}, {1: [1, 2]}, {1: 1, 2: 2}) == [Gain(1, 1, 1, 1)]
+
+
+def test_headline_names_the_biggest_gain_to_the_chosen_moment():
+    drivers = {30: {"last_name": "Lawson"}}
+    found = [Gain(30, grid=22, lap_one=21, finish=7)]
+    assert positions_gained.headline(drivers, found, positions_gained.FINISH) == \
+        "Lawson gained the most places by the flag: P22 to P7"
+    assert positions_gained.headline(drivers, found, positions_gained.LAP_ONE) == \
+        "Lawson gained the most places on the opening lap: P22 to P21"
