@@ -27,15 +27,21 @@ TYRES = {"SOFT": "#e8202f", "MEDIUM": "#f5c400", "HARD": "#f2f3f5", "INTERMEDIAT
 REPO = "github.com/pitwallcoder/f1-telemetry-lab"
 
 
-def figure():
-    matplotlib.rcParams.update({
-        "font.family": "monospace", "font.monospace": MONO, "font.sans-serif": SANS,
-        "text.color": TEXT, "axes.labelcolor": MUTED, "xtick.color": FAINT, "ytick.color": FAINT,
-        "axes.labelsize": 9, "xtick.labelsize": 8, "ytick.labelsize": 8,
-    })
-    fig = Figure(figsize=(12.8, 7.2), dpi=125)
+# Every chart sets the same matplotlib keys, so none inherits the look of the chart drawn before it.
+BASE_RC = {"font.monospace": MONO, "text.color": TEXT, "axes.labelcolor": MUTED, "xtick.color": FAINT,
+           "ytick.color": FAINT, "axes.labelsize": 9, "xtick.labelsize": 8, "ytick.labelsize": 8}
+
+
+def _canvas(family, sans, size, dpi):
+    matplotlib.rcParams.update({**BASE_RC, "font.family": family, "font.sans-serif": sans})
+    fig = Figure(figsize=size, dpi=dpi)
     FigureCanvasAgg(fig)  # text_row measures text as it lays it out
     fig.patch.set_facecolor(BG)
+    return fig
+
+
+def figure():
+    fig = _canvas("monospace", SANS, (12.8, 7.2), 125)
     fig.patches.append(FancyBboxPatch((0.012, 0.02), 0.976, 0.96, boxstyle="round,pad=0,rounding_size=0.012",
                                       transform=fig.transFigure, fill=False, edgecolor=FRAME, linewidth=1))
     return fig
@@ -43,11 +49,7 @@ def figure():
 
 def race_figure(title):
     """16:9 dark canvas with a centred title and the account byline."""
-    matplotlib.rcParams.update({"font.family": "sans-serif", "font.sans-serif": WORDS, "xtick.color": FAINT,
-                                "ytick.color": FAINT, "text.color": TEXT})
-    fig = Figure(figsize=(16, 9), dpi=135)
-    FigureCanvasAgg(fig)
-    fig.patch.set_facecolor(BG)
+    fig = _canvas("sans-serif", WORDS, (16, 9), 135)
     fig.text(0.5, 0.95, title, color=TEXT, fontsize=21, fontweight="bold", ha="center")
     fig.text(0.5, 0.915, "by @pitwallcoder", color=PURPLE, fontsize=11.5, fontweight="semibold", ha="center")
     return fig
