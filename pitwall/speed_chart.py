@@ -89,11 +89,9 @@ class _Run:
 def from_session(year, circuit, session_code, wanted_drivers=()):
     """Comparison for e.g. 2026, "Mexico City", "FP1", ["LEC", "ANT"]; names as documented in README."""
     session = openf1.find_session(year, circuit, session_code)
-    meeting = openf1.get("meetings", meeting_key=session["meeting_key"])
     drivers, best_laps = openf1.session_laps(session)
     pair = openf1.pick_drivers(best_laps, drivers, list(wanted_drivers))
-    meeting_name = meeting[0]["meeting_name"] if meeting else session["location"]
-    return compare(session, meeting_name, drivers, best_laps, pair)
+    return compare(session, openf1.meeting_name(session), drivers, best_laps, pair)
 
 
 def compare(session, meeting_name, drivers, best_laps, pair):

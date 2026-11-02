@@ -56,6 +56,11 @@ def slug(session):
     return re.sub(r"[^a-z0-9]+", "-", f"{session['year']} {session['circuit_short_name']} {session['session_name']}".lower()).strip("-")
 
 
+def meeting_name(session):
+    meeting = get("meetings", meeting_key=session["meeting_key"])
+    return meeting[0]["meeting_name"] if meeting else session["location"]
+
+
 def find_session(year, circuit, code):
     return match_session(get("sessions", year=year), circuit, code, datetime.now(timezone.utc))
 

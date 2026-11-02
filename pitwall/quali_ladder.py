@@ -55,13 +55,11 @@ def sector_gaps(row, pole):
 def from_session(year, circuit, session_code):
     session = openf1.find_session(year, circuit, session_code)
     key, cache = session["session_key"], openf1.settled(session)
-    meeting = openf1.get("meetings", meeting_key=session["meeting_key"])
     drivers = {d["driver_number"]: d for d in openf1.get("drivers", cache=cache, session_key=key)}
     rows = ladder(openf1.get("session_result", cache=cache, session_key=key),
                   openf1.get("laps", cache=cache, session_key=key), drivers,
                   SPRINT_SEGMENTS if session_code == "SQ" else SEGMENTS)
-    meeting_name = meeting[0]["meeting_name"] if meeting else session["location"]
-    return session, meeting_name, rows
+    return session, openf1.meeting_name(session), rows
 
 
 def render(session, meeting_name, rows, code):
