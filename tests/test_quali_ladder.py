@@ -1,6 +1,6 @@
 import pytest
 
-from pitwall import quali_ladder
+from pitwall import quali_ladder, style
 from pitwall.openf1 import DataNotFound
 
 DRIVERS = {12: {"name_acronym": "ANT", "team_colour": "27F4D2"}, 30: {"name_acronym": "LAW", "team_colour": "6692FF"},
@@ -62,3 +62,12 @@ def test_a_lap_faster_than_pole_is_labelled_as_a_negative_gap():
     fig = quali_ladder.render({"year": 2026, "session_name": "Qualifying"}, "Test GP", rows, "PW-TEST")
     labels = {t.get_text() for ax in fig.axes for t in ax.texts}
     assert "-1.023" in labels
+
+
+def test_the_fastest_time_in_each_sector_is_purple():
+    laps = [lap(12, 9, 25.31, 37.297, 31.428), lap(30, 7, 25.2, 37.643, 31.4)]
+    rows = quali_ladder.ladder([result(1, 12, [None, None, 94.035]), result(2, 30, [None, None, 94.243])],
+                               laps, DRIVERS)
+    fig = quali_ladder.render({"year": 2026, "session_name": "Qualifying"}, "Test GP", rows, "PW-TEST")
+    purple = sorted(t.get_text() for ax in fig.axes for t in ax.texts if t.get_color() == style.PURPLE)
+    assert purple == ["-0.028", "-0.110", "37.297"]

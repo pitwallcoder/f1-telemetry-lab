@@ -69,7 +69,7 @@ def render(session, meeting_name, rows, code):
                                      (style.lap_time(pole.lap["lap_duration"]), style.TEXT, big),
                                      ("POLE", style.MUTED, {"fontsize": 12})])
     fig.text(0.04, 0.808, "Gap to pole · each driver's classifying lap · official timing · "
-             "sectors vs pole's, white = faster", fontsize=10, color=style.MUTED)
+             "sectors vs pole's, white = faster, purple = best of these laps", fontsize=10, color=style.MUTED)
     bg, bars, table = (_rows_axes(fig, x0, x1, rows) for x0, x1 in ((0.03, 0.97), (0.12, 0.60), (0.60, 0.95)))
     _stripes(bg, rows)
     _bars(bars, rows, pole)
@@ -121,13 +121,13 @@ def _sectors(ax, rows, pole):
     for x, title in zip(columns, ("LAP", "S1", "S2", "S3")):
         ax.annotate(title, (x, 1), xycoords=("data", "axes fraction"), xytext=(0, 6), textcoords="offset points",
                     ha="right", fontsize=10, color=style.MUTED)
+    best = [min(times) for times in zip(*(row.sectors() for row in rows))]
     for y, row in enumerate(rows):
         cells = [(style.lap_time(row.lap["lap_duration"]), style.TEXT if row is pole else style.MUTED, "normal")]
-        if row is pole:
-            cells += [(f"{s:.3f}", style.TEXT, "normal") for s in row.sectors()]
-        else:
-            cells += [(f"{g:+.3f}", style.TEXT if g < 0 else style.MUTED, "bold" if g < 0 else "normal")
-                      for g in sector_gaps(row, pole)]
+        for sector, gap, fastest in zip(row.sectors(), sector_gaps(row, pole), best):
+            colour = style.PURPLE if sector == fastest else style.TEXT if row is pole or gap < 0 else style.MUTED
+            cells.append((f"{sector:.3f}" if row is pole else f"{gap:+.3f}", colour,
+                          "bold" if sector == fastest or gap < 0 else "normal"))
         for x, (text, colour, weight) in zip(columns, cells):
             ax.text(x, y, text, ha="right", va="center", fontsize=8.5, color=colour, fontweight=weight)
 

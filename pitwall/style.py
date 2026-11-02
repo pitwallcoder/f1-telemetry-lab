@@ -1,4 +1,5 @@
-"""Pit Wall Notes visual identity. Purple is the brand accent and never encodes data; drivers keep their team colours."""
+"""Pit Wall Notes visual identity. Drivers keep their team colours; purple is the brand accent, and in data it only
+marks a fastest sector, as on F1 timing screens."""
 import json
 from pathlib import Path
 
