@@ -20,6 +20,10 @@ FALLBACK_COLOUR = MUTED.lstrip("#")
 
 MONO = ["JetBrainsMono Nerd Font", "JetBrains Mono", "Menlo", "DejaVu Sans Mono"]
 SANS = ["Helvetica Neue", "Arial", "DejaVu Sans"]
+# Race charts (positions, pace) use the sans look of the F1 data community, with timing-screen digits.
+WORDS = ["Avenir Next", *SANS]
+DIGITS = ["DIN Alternate", *WORDS]
+TYRES = {"SOFT": "#e8202f", "MEDIUM": "#f5c400", "HARD": "#f2f3f5", "INTERMEDIATE": "#2fb34a", "WET": "#2f6fe0"}
 REPO = "github.com/pitwallcoder/f1-telemetry-lab"
 
 
@@ -35,6 +39,29 @@ def figure():
     fig.patches.append(FancyBboxPatch((0.012, 0.02), 0.976, 0.96, boxstyle="round,pad=0,rounding_size=0.012",
                                       transform=fig.transFigure, fill=False, edgecolor=FRAME, linewidth=1))
     return fig
+
+
+def race_figure(title):
+    """16:9 dark canvas with a centred title and the account byline."""
+    matplotlib.rcParams.update({"font.family": "sans-serif", "font.sans-serif": WORDS, "xtick.color": FAINT,
+                                "ytick.color": FAINT, "text.color": TEXT})
+    fig = Figure(figsize=(16, 9), dpi=135)
+    FigureCanvasAgg(fig)
+    fig.patch.set_facecolor(BG)
+    fig.text(0.5, 0.95, title, color=TEXT, fontsize=21, fontweight="bold", ha="center")
+    fig.text(0.5, 0.915, "by @pitwallcoder", color=PURPLE, fontsize=11.5, fontweight="semibold", ha="center")
+    return fig
+
+
+def bare_axes(fig, rect):
+    ax = fig.add_axes(rect)
+    style_axes(ax)
+    ax.grid(False)
+    return ax
+
+
+def team_colour(driver):
+    return f"#{driver.get('team_colour') or FALLBACK_COLOUR}"
 
 
 def context_line(fig, code, context):
