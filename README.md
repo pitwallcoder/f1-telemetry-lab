@@ -100,7 +100,7 @@ can come from a lap that did not classify the driver). Writes a PNG and a JSON w
 
 ## Race charts
 
-Two charts of a Grand Prix, both from official timing, with the race-control periods worked out from the race
+Charts of a Grand Prix, all from official timing, with the race-control periods worked out from the race
 itself: a VSC, safety car or red flag runs from the message that starts it to the one that ends it, by lap of the
 leader (a safety car that becomes a red flag ends the lap before).
 
@@ -129,6 +129,24 @@ on board, a typical estimate rather than a measured figure, so medians are estim
 
 The shared lap-by-lap logic is in `pitwall/race.py`; each chart module only turns it into a picture.
 
+### Gap to the leader
+
+```bash
+uv run python -m pitwall.race_gaps 2026 "Mexico City" --code PW-018
+```
+
+The top ten finishers' time behind the first car to complete each lap, from official line crossings, with the
+same tyre circles, neutralisation shading and dashed second drivers as the position chart.
+
+### Positions gained
+
+```bash
+uv run python -m pitwall.positions_gained 2026 "Mexico City" --code PW-017
+```
+
+Every classified driver's places gained from the grid to the flag (bars, official classification) and to the end
+of lap 1 (rings, order across the line). Retirements are left out.
+
 ## Teammate head-to-head
 
 Who was classified ahead of his teammate, round by round, over a season: qualifying (`Q`) or the race (`R`).
@@ -142,6 +160,50 @@ Teammates are paired per round from that weekend's entry list, so mid-season sea
 classified driver beats an unclassified teammate (DNF, DSQ, no time); rounds where neither is classified don't
 count. Qualifying adds the median gap, taken in the last part of qualifying (Q3, else Q2, else Q1) both drivers
 set a time in. Cancelled rounds and rounds with no published result are skipped.
+
+## Practice long runs
+
+```bash
+uv run python -m pitwall.long_runs 2026 Interlagos --code PW-016            # FP2; --session FP1 or FP3
+```
+
+Each driver's longest stint at race pace: no out-laps, no laps under a VSC, safety car or red flag, and none more
+than 3% slower than the stint's fastest (cool-down laps, traffic, the in-lap), so a qualifying run of push and
+cool-down laps never counts. At least 5 laps. Laps are fuel-corrected to the run's last lap at ~0.035 s per lap and
+degradation is the slope of a straight line through them. Fuel loads and engine modes in practice are unknown, so
+the ranking is a guide, not a result. Drawn like race pace.
+
+## Top speed
+
+```bash
+uv run python -m pitwall.top_speed 2026 "Las Vegas" Q --code PW-015
+```
+
+Each driver's best official speed-trap reading of the session. OpenF1 has no reading on some laps (about 1 in 5);
+the JSON also lists both intermediates.
+
+## Minisector dominance
+
+```bash
+uv run python -m pitwall.minisectors 2026 "Mexico City" Q --code PW-019          # fastest of the top 3 teams
+uv run python -m pitwall.minisectors 2026 "Mexico City" Q VER LEC RUS
+```
+
+The drivers' fastest laps, measured as in the speed-trace comparison (distance by fusion, every lap pinned to the
+official timing lines), the track split into 25 equal minisectors and each drawn in the colour of whoever was
+quickest through it. A minisector where the top two are within 0.02 s, about what a few metres of position error
+is worth at speed, is grey: too close to call.
+
+## Track limits
+
+```bash
+uv run python -m pitwall.track_limits 2026 --code PW-014                              # the season so far
+uv run python -m pitwall.track_limits 2026 --session "Mexico City" R --code PW-013    # one session
+```
+
+Laps and lap times race control deleted for track limits, by driver and by turn (one session) or by circuit (the
+season, every session including practice). Reinstated laps are not counted. OpenF1 files a few messages of an
+earlier session of the weekend under a later one, so messages from before the session started are ignored.
 
 ## Development
 
