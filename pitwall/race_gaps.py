@@ -1,89 +1,118 @@
-"""Gap to the leader: every driver's time behind the car in front of the race at the end of each lap, with tyre
-stops and neutralisations.
+"""The fight between two drivers: how far apart they were at the end of every lap, with their pit stops and the
+neutralisations.
 
-  uv run python -m pitwall.race_gaps 2026 "Mexico City" --code PW-018
+  uv run python -m pitwall.race_gaps 2026 "Mexico City" --code PW-018            # the top two finishers
+  uv run python -m pitwall.race_gaps 2026 "Mexico City" LEC HAM
 """
 from pitwall import cli, openf1, race, race_positions, style
 
-TOP = 10  # every car on one chart is unreadable; the top ten finishers carry the story
+NAMES = {"VSC": "VSC", "SC": "SAFETY CAR", "RED": "RED FLAG"}
 
 
-def gaps(laps):
-    """driver -> {lap: seconds behind the first car to complete that lap}."""
+def between(laps, first, second):
+    """lap -> seconds `second` crossed the line after `first`; negative when `second` was ahead."""
     crossed = race.line_crossings(laps)
-    first = {}
-    for (_, lap), moment in crossed.items():
-        first[lap] = min(first.get(lap, moment), moment)
-    out = {}
-    for (driver, lap), moment in sorted(crossed.items()):
-        out.setdefault(driver, {})[lap] = (moment - first[lap]).total_seconds()
-    return out
+    return {lap: (crossed[(second, lap)] - moment).total_seconds()
+            for (driver, lap), moment in sorted(crossed.items()) if driver == first and (second, lap) in crossed}
 
 
-def spread(ys, min_gap):
-    """Label positions in the same order as `ys`, pushed down until no two are closer than `min_gap`."""
-    out, last = {}, None
-    for key, y in sorted(ys.items(), key=lambda kv: kv[1]):
-        out[key] = y if last is None else max(y, last + min_gap)
-        last = out[key]
-    return out
-
-
-def top_finishers(result, behind):
+def pair(result, drivers, wanted):
+    """Two drivers by acronym or number, the top two finishers when none are given; the one classified ahead first."""
     classified = race.classification(result)
-    return {d: behind[d] for d in sorted(classified, key=classified.get)[:TOP] if d in behind}
+    if not wanted:
+        picked = sorted(classified, key=classified.get)[:2]
+    else:
+        by_name = {d["name_acronym"].upper(): n for n, d in drivers.items()}
+        picked = [int(w) if str(w).isdigit() else by_name.get(str(w).upper()) for w in wanted]
+        missing = [w for w, n in zip(wanted, picked) if n not in drivers]
+        if missing:
+            raise openf1.DataNotFound(f"Not in this race: {', '.join(missing)}")
+    return tuple(sorted(picked, key=lambda n: classified.get(n, 99)))
 
 
-def render(r, behind):
-    s, behind = r.session, top_finishers(r.result, behind)
-    last = max(max(g) for g in behind.values())
-    lead_lap = [g[last] for d, g in behind.items() if last in g]
-    bottom = max(lead_lap) * 1.08 + 2
-    fig = style.race_figure(f"{s['year']} {r.meeting_name} · Race · Gap to the leader")
-    fig.text(0.5, 0.875, f"Top {TOP} finishers, official classification", color=style.MUTED, fontsize=11, ha="center")
-    ax = style.bare_axes(fig, [0.06, 0.08, 0.86, 0.77])
-    ax.set_xlim(0.4, last + 0.6)
-    ax.set_ylim(bottom, -bottom * 0.1)
-    race_positions.neutralisations(ax, r.periods, lambda row: -bottom * (0.075 - 0.035 * row))
-    second = race_positions.second_drivers(r.drivers, race.grid(r.positions))
-    for d, g in behind.items():
-        laps = sorted(g)
-        ax.plot(laps, [g[k] for k in laps], color=style.team_colour(r.drivers[d]), linewidth=1.4, zorder=3,
-                linestyle=(0, (4, 2.2)) if d in second else "-", solid_joinstyle="round")
-    for d, lap, compound in race_positions.tyre_changes(r.stints):
-        if compound in style.TYRES and lap in behind.get(d, {}) and behind[d][lap] < bottom:
-            race_positions.tyre_marker(ax, lap, behind[d][lap], compound, nudge=bottom * 0.002)
-    finishers = {d: g[last] for d, g in behind.items() if last in g}
-    for d, y in spread(finishers, bottom * 0.026).items():
-        info = r.drivers[d]
-        ax.text(last + 0.9, y, f"{info['name_acronym']} +{finishers[d]:.1f}" if finishers[d] else info["name_acronym"],
-                color=style.team_colour(info), fontsize=9, fontweight="bold", va="center", family=style.DIGITS)
-    ticks = range(0, int(bottom), 10 if bottom < 80 else 20)
-    ax.set_yticks(list(ticks))
-    ax.set_yticklabels([f"{t} s" for t in ticks], family=style.DIGITS, fontsize=9)
-    ax.set_xticks(range(5, last + 1, 5))
-    ax.set_xticklabels([f"L{k}" for k in range(5, last + 1, 5)], fontweight="semibold", fontsize=9)
+def headline(drivers, first, second, gap):
+    return f"{style.surname(drivers[first])} beat {style.surname(drivers[second])} by {gap[max(gap)]:.1f} s"
+
+
+def colours(drivers, first, second):
+    """Team colours, with the second driver in white when both share a team."""
+    a, b = style.team_colour(drivers[first]), style.team_colour(drivers[second])
+    return a, style.TEXT if a.lower() == b.lower() else b
+
+
+def render(r, first, second, gap):
+    s, (ca, cb) = r.session, colours(r.drivers, first, second)
+    na, nb = style.surname(r.drivers[first]), style.surname(r.drivers[second])
+    fig = style.story_figure(headline(r.drivers, first, second, gap), f"{s['year']} {r.meeting_name} · Race",
+                             f"How far apart {na} and {nb} were at the end of every lap. Above the line: {na} ahead. "
+                             f"Below: {nb} ahead.")
+    ax = style.bare_axes(fig, [0.08, 0.1, 0.84, 0.66])
+    laps = sorted(gap)
+    y = [gap[k] for k in laps]
+    top = max(max(y), -min(y), 2) * 1.15
+    ax.set_xlim(laps[0] - 0.5, laps[-1] + 0.5)
+    ax.set_ylim(-top, top * 1.12)
+    race_positions.neutralisations(ax, r.periods, lambda row: top * (1.08 - 0.08 * row), NAMES)
+    ax.axhline(0, color=style.MUTED, linewidth=1)
+    ax.fill_between(laps, y, 0, where=[v >= 0 for v in y], color=ca, alpha=0.3, linewidth=0, interpolate=True)
+    ax.fill_between(laps, y, 0, where=[v <= 0 for v in y], color=cb, alpha=0.3, linewidth=0, interpolate=True)
+    ax.plot(laps, y, color=style.TEXT, linewidth=1.8, zorder=3)
+    ax.text(laps[0], top * 0.9, f"{na} ahead", color=ca, fontsize=13, fontweight="bold")
+    ax.text(laps[0], -top * 0.9, f"{nb} ahead", color=cb, fontsize=13, fontweight="bold", va="bottom")
+    _stops(ax, r, first, second, gap, (na, nb), top)
+    ticks = [t for t in range(-int(top), int(top) + 1) if t % _step(top) == 0]
+    ax.set_yticks(ticks)
+    ax.set_yticklabels([f"{abs(t)} s" for t in ticks], family=style.DIGITS, fontsize=10)
+    ax.set_xticks(range(5, laps[-1] + 1, 5))
+    ax.set_xticklabels([f"Lap {k}" for k in range(5, laps[-1] + 1, 5)], fontsize=10)
     for t in ticks:
         ax.axhline(t, color=style.GRID, linewidth=0.6, zorder=0)
-    fig.text(0.92, 0.03, "seconds behind the first car to complete each lap (official timing) · circles = tyre fitted · "
-             f"shaded = VSC / SC / red flag · dashed = second driver of the team · top {TOP} finishers", color=style.FAINT, fontsize=8.5, ha="right")
+    fig.text(0.95, 0.03, "Official timing: time between the two cars crossing the line · data: OpenF1",
+             color=style.FAINT, fontsize=9, ha="right")
     return fig
 
 
-def facts(r, behind, code):
+def _step(top):
+    return next(s for s in (1, 2, 5, 10, 20) if top / s <= 6)
+
+
+def _stops(ax, r, first, second, gap, names, top):
+    """A tyre circle where each of the two fitted new tyres, with who pitted: the first driver's label above, the
+    second's below, so stops on the same lap don't overlap. A second set on the next lap (a stop under a safety car,
+    then a change in the red-flag pit lane) keeps the first label only."""
+    labelled = set()
+    for driver, lap, compound in sorted(race_positions.tyre_changes(r.stints), key=lambda c: c[1]):
+        if driver not in (first, second) or lap not in gap or compound not in style.TYRES:
+            continue
+        race_positions.tyre_marker(ax, lap, gap[lap], compound, nudge=top * 0.004)
+        if (driver, lap - 1) not in labelled:
+            ax.annotate(f"{names[driver != first]} pits", (lap, gap[lap]), xytext=(0, 15 if driver == first else -15),
+                        textcoords="offset points", ha="center", va="center", color=style.TEXT, fontsize=10)
+        labelled.add((driver, lap))
+
+
+def facts(r, first, second, gap, code):
     s = r.session
     return {"code": code, "event": r.meeting_name, "year": s["year"],
-            "drivers": {r.drivers[d]["name_acronym"]: [round(g[k], 3) for k in sorted(g)] for d, g in behind.items()},
+            "drivers": [r.drivers[first]["name_acronym"], r.drivers[second]["name_acronym"]],
+            "gap_s_by_lap": {lap: round(g, 3) for lap, g in sorted(gap.items())},
+            "positive_means": f"{r.drivers[first]['name_acronym']} ahead",
             "neutralisations": [{"kind": p.kind, "first_lap": p.first_lap, "last_lap": p.last_lap} for p in r.periods],
             "sources": ["OpenF1"]}
 
 
 def main(argv=None):
-    args = cli.parser("python -m pitwall.race_gaps", __doc__, "PW-018").parse_args(argv)
+    parser = cli.parser("python -m pitwall.race_gaps", __doc__, "PW-018")
+    parser.add_argument("drivers", nargs="*", help="two acronyms or numbers; default: the top two finishers")
+    args = parser.parse_args(argv)
+    if len(args.drivers) not in (0, 2):
+        parser.error("give exactly two drivers, or none for the top two finishers")
     r = cli.fetch(lambda: race.load(args.year, args.circuit))
-    behind = gaps(r.laps)
-    print(style.save(render(r, behind), facts(r, behind, args.code), args.code,
-                     f"{openf1.slug(r.session)}_gaps", args.out))
+    first, second = cli.fetch(lambda: pair(r.result, r.drivers, args.drivers))
+    gap = between(r.laps, first, second)
+    names = f"{r.drivers[first]['name_acronym']}-vs-{r.drivers[second]['name_acronym']}"
+    print(style.save(render(r, first, second, gap), facts(r, first, second, gap, args.code), args.code,
+                     f"{openf1.slug(r.session)}_gap_{names}", args.out))
 
 
 if __name__ == "__main__":

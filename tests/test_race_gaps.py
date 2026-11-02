@@ -1,6 +1,7 @@
 import pytest
 
 from pitwall import race_gaps
+from pitwall.openf1 import DataNotFound
 
 
 def lap(driver, number, start, seconds=None):
@@ -8,19 +9,25 @@ def lap(driver, number, start, seconds=None):
             "lap_duration": seconds}
 
 
-def test_gap_is_time_behind_whoever_completed_that_lap_first():
+def test_gap_is_how_far_the_second_driver_crossed_the_line_behind_the_first_each_lap():
     laps = [lap(1, 1, "00:00"), lap(1, 2, "01:30"), lap(1, 3, "03:00", 90.0),
             lap(4, 1, "00:00"), lap(4, 2, "01:32"), lap(4, 3, "02:59", 95.0)]
-    assert race_gaps.gaps(laps) == {1: {1: 0.0, 2: pytest.approx(1.0), 3: 0.0},
-                                    4: {1: pytest.approx(2.0), 2: 0.0, 3: pytest.approx(4.0)}}
+    assert race_gaps.between(laps, 1, 4) == {1: pytest.approx(2.0), 2: pytest.approx(-1.0), 3: pytest.approx(4.0)}
 
 
-def test_labels_closer_than_the_minimum_are_pushed_apart_in_order():
-    assert race_gaps.spread({"A": 0.0, "B": 0.5, "C": 10.0}, 2.0) == {"A": 0.0, "B": 2.0, "C": 10.0}
-    assert race_gaps.spread({"A": 0.0, "B": 0.5, "C": 3.0}, 2.0) == {"A": 0.0, "B": 2.0, "C": 4.0}
+def test_pair_defaults_to_the_top_two_and_puts_the_one_classified_ahead_first():
+    result = [{"driver_number": 44, "position": 2}, {"driver_number": 1, "position": 1},
+              {"driver_number": 16, "position": 3}]
+    drivers = {1: {"name_acronym": "VER"}, 44: {"name_acronym": "HAM"}, 16: {"name_acronym": "LEC"}}
+    assert race_gaps.pair(result, drivers, []) == (1, 44)
+    assert race_gaps.pair(result, drivers, ["lec", "1"]) == (1, 16)
 
 
-def test_only_the_top_finishers_by_official_classification_are_drawn():
-    result = [{"driver_number": d, "position": p} for d, p in zip(range(1, 13), range(12, 0, -1))]
-    behind = {d: {1: float(d)} for d in range(1, 13)}
-    assert list(race_gaps.top_finishers(result, behind)) == [12, 11, 10, 9, 8, 7, 6, 5, 4, 3]
+def test_pair_rejects_an_unknown_driver():
+    with pytest.raises(DataNotFound, match="XYZ"):
+        race_gaps.pair([{"driver_number": 1, "position": 1}], {1: {"name_acronym": "VER"}}, ["VER", "XYZ"])
+
+
+def test_headline_gives_the_margin_on_the_last_lap():
+    drivers = {1: {"last_name": "Verstappen"}, 44: {"last_name": "Hamilton"}}
+    assert race_gaps.headline(drivers, 1, 44, {70: -3.0, 71: 0.84}) == "Verstappen beat Hamilton by 0.8 s"

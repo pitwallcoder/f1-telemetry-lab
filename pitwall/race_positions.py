@@ -101,12 +101,13 @@ def label_rows(periods):
     return rows
 
 
-def neutralisations(ax, periods, label_y):
-    """Shade each VSC, safety car and red flag; `label_y(row)` is where a label in that row goes, in data units."""
+def neutralisations(ax, periods, label_y, names=None):
+    """Shade each VSC, safety car and red flag; `label_y(row)` is where a label in that row goes, in data units, and
+    `names` replaces the short labels (SC, RED)."""
     for p in periods:
         ax.axvspan(p.first_lap - 0.5, p.last_lap + 0.5, color="#c98a1a", alpha=NEUTRAL_SHADE[p.kind], linewidth=0, zorder=0)
     for p, row in label_rows(periods):
-        ax.text((p.first_lap + p.last_lap) / 2, label_y(row), p.kind, color="#e0a33a", fontsize=8, ha="center",
+        ax.text((p.first_lap + p.last_lap) / 2, label_y(row), (names or {}).get(p.kind, p.kind), color="#e0a33a", fontsize=8, ha="center",
                 va="top", fontweight="bold")
 
 
