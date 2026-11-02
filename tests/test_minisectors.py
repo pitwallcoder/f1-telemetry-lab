@@ -15,8 +15,14 @@ def test_a_minisector_goes_to_the_fastest_unless_the_margin_is_too_small_to_meas
     assert minisectors.winners(times) == [1, None, 16]
 
 
-def test_default_drivers_are_the_fastest_of_the_three_fastest_teams():
+def test_default_drivers_are_the_fastest_of_the_two_fastest_teams():
     best = {n: {"lap_duration": t} for n, t in ((1, 76.0), (6, 76.1), (16, 76.2), (44, 76.3), (63, 76.4))}
     drivers = {1: {"team_name": "Red Bull"}, 6: {"team_name": "Red Bull"}, 16: {"team_name": "Ferrari"},
                44: {"team_name": "Ferrari"}, 63: {"team_name": "Mercedes"}}
-    assert minisectors.default_drivers(best, drivers) == [1, 16, 63]
+    assert minisectors.default_drivers(best, drivers) == [1, 16]
+
+
+def test_headline_gives_the_lap_gap_between_the_two_fastest():
+    drivers = {44: {"last_name": "Hamilton"}, 63: {"last_name": "Russell"}}
+    laps = {63: {"lap_duration": 76.523}, 44: {"lap_duration": 76.514}}
+    assert minisectors.headline(drivers, laps) == "Hamilton beat Russell by 0.009 s: where each was quicker"

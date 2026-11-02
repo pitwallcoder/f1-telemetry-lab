@@ -1,7 +1,7 @@
 """Minisector dominance: the track split into equal parts, each coloured by the driver who was fastest through it on
 his fastest lap.
 
-  uv run python -m pitwall.minisectors 2026 "Mexico City" Q --code PW-019          # fastest of the top 3 teams
+  uv run python -m pitwall.minisectors 2026 "Mexico City" Q --code PW-019          # fastest of the top 2 teams
   uv run python -m pitwall.minisectors 2026 "Mexico City" Q VER LEC RUS
 """
 from dataclasses import dataclass
@@ -14,7 +14,7 @@ MINISECTORS = 25
 # Distances are good to a few metres at the timing lines (README), worth ~0.02 s at speed: a closer minisector has no
 # measurable winner.
 TIE_S = 0.02
-TEAMS = 3
+TEAMS = 2  # two colours read at a glance; a third turns the map into a puzzle
 
 
 @dataclass(frozen=True)
@@ -26,6 +26,7 @@ class Dominance:
     times: dict  # driver -> seconds in each minisector
     winners: list  # driver or None (too close to call) per minisector
     track: tuple  # x, y of the fastest lap's positions and the minisector each one is in
+    corners: list  # (number, x, y)
     rotation: float
 
 
@@ -66,7 +67,8 @@ def dominance(year, circuit, code, wanted):
     length = float(shared[-1])
     times = {n: sector_times(r.t, d, length) for n, r, d in zip(picked, runs, pinned)}
     return Dominance(session, openf1.meeting_name(session), drivers, {n: best_laps[n] for n in picked}, times,
-                     winners(times), _track(runs[0], pinned[0], length), circuit_line.rotation)
+                     winners(times), _track(runs[0], pinned[0], length), _corners(circuit_line),
+                     circuit_line.rotation)
 
 
 def named(drivers, best_laps, wanted):
@@ -87,52 +89,68 @@ def _track(run, d, length):
     return run.pos_x[inside], run.pos_y[inside], part
 
 
+def _corners(c):
+    return [(n, float(np.interp(s, c.line.s, c.line.x)), float(np.interp(s, c.line.s, c.line.y))) for n, s in c.corners]
+
+
+def headline(drivers, laps):
+    (a, la), (b, lb) = sorted(laps.items(), key=lambda kv: kv[1]["lap_duration"])[:2]
+    gap = lb["lap_duration"] - la["lap_duration"]
+    return f"{style.surname(drivers[a])} beat {style.surname(drivers[b])} by {gap:.3f} s: where each was quicker"
+
+
 def colour(dom, driver):
     return style.team_colour(dom.drivers[driver]) if driver is not None else style.FAINT
 
 
 def render(dom):
     s = dom.session
-    fig = style.race_figure(f"{s['year']} {dom.meeting_name} · {s['session_name']} · Minisector dominance")
-    fig.text(0.5, 0.875, f"Fastest laps, track split into {MINISECTORS} equal minisectors, each in the colour of "
-             "whoever was quickest through it", color=style.MUTED, fontsize=11, ha="center")
-    ax = fig.add_axes([0.04, 0.08, 0.6, 0.76])
+    fig = style.story_figure(headline(dom.drivers, dom.laps), f"{s['year']} {dom.meeting_name} · {s['session_name']} · "
+                             "fastest laps", f"The track cut into {MINISECTORS} equal parts, each in the colour of the "
+                             f"driver who was quicker there. Grey: less than {TIE_S} s apart, too close to call.")
+    ax = fig.add_axes([0.03, 0.06, 0.62, 0.72])
     x, y, part = dom.track
     x, y = style.rotate(np.asarray(x, float), np.asarray(y, float), dom.rotation)
-    ax.plot(x, y, color=style.GRID, linewidth=9, solid_capstyle="round", zorder=1)
     for k, who in enumerate(dom.winners):
         idx = np.flatnonzero(part == k)
         if idx.size:
             idx = np.append(idx, min(idx[-1] + 1, len(x) - 1))
-            ax.plot(x[idx], y[idx], color=colour(dom, who), linewidth=6, solid_capstyle="butt", zorder=2)
-    ax.scatter([x[0]], [y[0]], s=60, color=style.TEXT, zorder=3)
-    ax.annotate("start / finish", (x[0], y[0]), xytext=(8, 8), textcoords="offset points", color=style.MUTED,
-                fontsize=9)
+            ax.plot(x[idx], y[idx], color=colour(dom, who), linewidth=9 if who else 5, solid_capstyle="butt", zorder=2)
+    _corner_numbers(ax, dom, x, y)
+    ax.scatter([x[0]], [y[0]], s=70, color=style.TEXT, zorder=3)
+    ax.annotate("start / finish", (x[0], y[0]), xytext=(10, -14), textcoords="offset points", color=style.TEXT,
+                fontsize=10)
     ax.set_aspect("equal")
     ax.axis("off")
     _legend(fig, dom)
     return fig
 
 
+def _corner_numbers(ax, dom, x, y):
+    """Each corner's number just off the track, on the side away from the middle of the circuit."""
+    span = max(np.ptp(x), np.ptp(y))
+    for n, px, py in dom.corners:
+        px, py = style.rotate(np.array(px), np.array(py), dom.rotation)
+        normal = style.outward(x, y, px, py)
+        ax.text(px + normal[0] * span * 0.035, py + normal[1] * span * 0.035, str(n), color=style.MUTED,
+                fontsize=10, ha="center", va="center", family=style.DIGITS)
+
+
 def _legend(fig, dom):
     best = min(lap["lap_duration"] for lap in dom.laps.values())
-    fig.text(0.7, 0.78, "MINISECTORS", color=style.FAINT, fontsize=8.5, fontweight="bold")
     for k, n in enumerate(dom.laps):
-        y, info, lap = 0.72 - k * 0.075, dom.drivers[n], dom.laps[n]["lap_duration"]
-        fig.text(0.7, y, info["name_acronym"], color=colour(dom, n), fontsize=16, fontweight="bold", va="center")
-        fig.text(0.76, y, str(dom.winners.count(n)), color=style.TEXT, fontsize=16, fontweight="bold", va="center",
-                 family=style.DIGITS)
-        fig.text(0.8, y, style.lap_time(lap) if lap == best else f"{style.lap_time(lap)}  +{lap - best:.3f}",
-                 color=style.MUTED, fontsize=11, va="center", family=style.DIGITS)
+        y, info, lap = 0.68 - k * 0.15, dom.drivers[n], dom.laps[n]["lap_duration"]
+        fig.text(0.68, y, style.surname(info), color=colour(dom, n), fontsize=24, fontweight="bold", va="center")
+        fig.text(0.68, y - 0.05, f"quicker in {dom.winners.count(n)} of {MINISECTORS} parts", color=style.TEXT,
+                 fontsize=13, va="center")
+        fig.text(0.95, y, style.lap_time(lap) if lap == best else f"+{lap - best:.3f} s", color=style.MUTED,
+                 fontsize=15, va="center", ha="right", family=style.DIGITS)
     ties = dom.winners.count(None)
     if ties:
-        y = 0.72 - len(dom.laps) * 0.075
-        fig.text(0.7, y, "—", color=style.FAINT, fontsize=16, fontweight="bold", va="center")
-        fig.text(0.76, y, str(ties), color=style.MUTED, fontsize=16, fontweight="bold", va="center",
-                 family=style.DIGITS)
-        fig.text(0.8, y, f"within {TIE_S} s, too close to call", color=style.FAINT, fontsize=11, va="center")
-    fig.text(0.95, 0.03, "Distance from speed and position fused, pinned to official sector times (see README). "
-             "data: OpenF1 · track: MultiViewer", color=style.FAINT, fontsize=8.5, ha="right")
+        fig.text(0.68, 0.68 - len(dom.laps) * 0.15, f"{ties} parts too close to call", color=style.MUTED, fontsize=13,
+                 va="center")
+    fig.text(0.95, 0.04, "Distance from car speed and position, pinned to official sector times · data: OpenF1 · "
+             "track: MultiViewer", color=style.FAINT, fontsize=9, ha="right")
 
 
 def facts(dom, code):
@@ -150,7 +168,7 @@ def facts(dom, code):
 def main(argv=None):
     parser = cli.parser("python -m pitwall.minisectors", __doc__, "PW-019")
     parser.add_argument("session", choices=openf1.SESSIONS, help="session code")
-    parser.add_argument("drivers", nargs="*", help="acronyms or numbers; default: fastest of the top 3 teams")
+    parser.add_argument("drivers", nargs="*", help="acronyms or numbers; default: fastest of the top 2 teams")
     args = parser.parse_args(argv)
     dom = cli.fetch(lambda: dominance(args.year, args.circuit, args.session, args.drivers))
     names = "-vs-".join(dom.drivers[n]["name_acronym"] for n in dom.laps)
