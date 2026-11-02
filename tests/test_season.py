@@ -29,3 +29,30 @@ def test_a_weekends_driver_list_is_cached_only_once_its_last_session_has_settled
     monday = datetime(2026, 11, 3, 12, tzinfo=timezone.utc)
     assert season.weekend_settled(sessions, 7, sunday_morning) is False
     assert season.weekend_settled(sessions, 7, monday) is True
+
+
+def fake_openf1(monkeypatch, results):
+    """OpenF1 stand-in: two finished races, with the given result per session key."""
+    sessions = [{"session_key": k, "meeting_key": k, "session_name": "Race", "date_start": f"2026-0{k}-01T15:00:00+00:00",
+                 "date_end": f"2026-0{k}-01T17:00:00+00:00", "year": 2026} for k in (1, 2)]
+
+    def get(endpoint, cache=False, **params):
+        if endpoint == "sessions":
+            return sessions
+        if endpoint == "session_result":
+            return results.get(params["session_key"], [])
+        return [{"driver_number": 1, "team_name": "McLaren"}]
+    monkeypatch.setattr(season.openf1, "get", get)
+
+
+def test_load_skips_rounds_without_a_published_result(monkeypatch):
+    fake_openf1(monkeypatch, {2: [{"driver_number": 1, "position": 1}]})
+    assert [r.session["session_key"] for r in season.load(2026, "Race")] == [2]
+
+
+def test_load_reports_a_season_with_no_results(monkeypatch):
+    import pytest
+    from pitwall.openf1 import DataNotFound
+    fake_openf1(monkeypatch, {})
+    with pytest.raises(DataNotFound, match="no Race results for 2026"):
+        season.load(2026, "Race")

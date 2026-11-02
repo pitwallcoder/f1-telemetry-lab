@@ -73,3 +73,13 @@ def test_a_zero_median_gap_reads_as_level_not_as_an_advantage():
     faster = head_to_head.Duel("Ferrari", 16, 44, {16: 2, 44: 1}, [-0.2, -0.1],
                                {16: {"name_acronym": "LEC"}, 44: {"name_acronym": "HAM"}})
     assert head_to_head.gap_label(faster) == "LEC by 0.150 s"
+
+
+def test_facts_report_each_duel_with_names_counts_and_gap():
+    teams = {16: "Ferrari", 44: "Ferrari"}
+    rounds = [round_([(44, 1), (16, 3)], teams, {44: [80.0, 79.5, 79.0], 16: [80.1, 79.6, 79.3]}),
+              round_([(16, 1), (44, 2)], teams, {44: [80.0, 79.5, 79.2], 16: [80.0, 79.4, 79.0]})]
+    rounds = [season.Round({"year": 2026, "circuit_short_name": c}, r.result, r.drivers) for c, r in zip("AB", rounds)]
+    facts = head_to_head.facts(rounds, head_to_head.duels(rounds, with_gaps=True), "Q", "PW-TEST")
+    assert facts["rounds"] == ["A", "B"]
+    assert facts["duels"] == [{"team": "Ferrari", "drivers": ["16", "44"], "ahead": [1, 1], "median_gap_s": 0.05}]
