@@ -98,6 +98,37 @@ Q3 to Q2 and Q1). Each bar is the lap gap; beside it sit the lap time and each s
 faster than pole's in white and the best of these laps in each sector in purple (the session's fastest sector
 can come from a lap that did not classify the driver). Writes a PNG and a JSON with the same facts to `out/<code>/`.
 
+## Race charts
+
+Two charts of a Grand Prix, both from official timing, with the race-control periods worked out from the race
+itself: a VSC, safety car or red flag runs from the message that starts it to the one that ends it, by lap of the
+leader (a safety car that becomes a red flag ends the lap before).
+
+### Position chart
+
+```bash
+uv run python -m pitwall.race_positions 2026 "Mexico City" --code PW-009
+```
+
+Every driver's place at the end of every lap, from the order in which cars crossed the line, starting from the
+grid. Lines in team colours, the teammate who started behind dashed; a circle with the compound letter where each
+tyre set was fitted; neutralised laps shaded; × where a driver retired. The right-hand labels are the official
+classification, starred when a time penalty dropped a driver below where he crossed the line.
+
+### Race pace
+
+```bash
+uv run python -m pitwall.race_pace 2026 "Mexico City" --code PW-010
+```
+
+Every classified driver's representative laps, ranked by median: no lap 1, no neutralised laps and no restart lap
+after a safety car or red flag, no laps into or out of the pits, and none more than 3% slower than the driver's
+own median (traffic, mistakes, damage, local yellows). Laps are fuel-corrected at ~0.035 s per lap of fuel still
+on board, a typical estimate rather than a measured figure, so medians are estimates. One box per driver (middle
+50% of laps, median in white) with every lap as a dot coloured by compound.
+
+The shared lap-by-lap logic is in `pitwall/race.py`; each chart module only turns it into a picture.
+
 ## Development
 
 ```bash
