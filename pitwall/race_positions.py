@@ -49,7 +49,7 @@ def tyre_changes(stints):
 def chart(r):
     starting_grid = race.grid(r.positions)
     return Chart(r, places_by_driver(race.running_order(r.laps), starting_grid), tyre_changes(r.stints),
-                 race.neutralisations(r.messages), race.classification(r.result),
+                 r.periods, race.classification(r.result),
                  second_drivers(r.drivers, starting_grid))
 
 

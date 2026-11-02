@@ -50,7 +50,7 @@ def driver_pace(driver, laps, total_laps):
 
 
 def ranking(r):
-    excluded = race.unrepresentative_laps(r.laps, race.neutralisations(r.messages))
+    excluded = race.unrepresentative_laps(r.laps, r.periods)
     total = max(lap["lap_number"] for lap in r.laps)
     classified = race.classification(r.result)
     laps = representative_laps(r.laps, r.pits, excluded, race.compound_by_lap(r.stints))
@@ -126,7 +126,7 @@ def facts(r, paces, code):
                      "gap_s": round(p.median - best, 3), "laps": len(p.laps)} for p in paces],
         "method": {"fuel_s_per_lap": FUEL_S_PER_LAP, "slow_lap_ratio": SLOW_LAP_RATIO,
                    "neutralisations": [{"kind": p.kind, "first_lap": p.first_lap, "last_lap": p.last_lap}
-                                       for p in race.neutralisations(r.messages)]},
+                                       for p in r.periods]},
         "precision": {"medians": "estimate: fuel correction is a typical value, not measured"},
         "sources": ["OpenF1"],
     }

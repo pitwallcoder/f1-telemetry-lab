@@ -29,6 +29,10 @@ class Race:
     messages: list
     positions: list
 
+    @property
+    def periods(self):
+        return neutralisations(self.messages)
+
 
 def line_crossings(laps):
     """(driver, lap) -> when the driver crossed the line to complete that lap.
