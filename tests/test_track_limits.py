@@ -36,6 +36,16 @@ def test_a_reinstated_time_or_lap_cancels_that_deletion_only():
 
 
 def test_a_session_without_deletions_is_reported_not_drawn():
-    empty = track_limits.Tally("t", "s", [], {}, track_limits.Counter(), "BY TURN", "x")
+    empty = track_limits.Tally("context", [], {}, "x", 2026)
     with pytest.raises(DataNotFound, match="no laps"):
         track_limits.render(empty)
+
+
+def test_season_headline_names_everyone_tied_at_the_top():
+    ant, sai, new = (track_limits.Deletion(12, "ANT", 1, "A"), track_limits.Deletion(55, "SAI", 4, "B"),
+                     track_limits.Deletion(99, "XXX", 4, "B"))
+    drivers = {12: {"last_name": "Antonelli"}, 55: {"last_name": "Sainz"}}
+    assert track_limits.headline(track_limits.Tally("c", [ant, sai, ant, sai, new], drivers, "x", 2026)) == \
+        "Antonelli and Sainz lost the most laps to track limits in 2026: 2 each"
+    assert track_limits.headline(track_limits.Tally("c", [ant, new, new], drivers, "x", 2026)) == \
+        "XXX lost the most laps to track limits in 2026: 2"

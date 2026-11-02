@@ -9,7 +9,9 @@ from collections import Counter
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
-from pitwall import cli, openf1, style
+import numpy as np
+
+from pitwall import circuits, cli, openf1, season, style
 
 DELETED = re.compile(r"^CAR (\d+) \((\w+)\) (TIME [\d:.]+|LAP) DELETED - TRACK LIMITS AT TURN (\d+)(?: LAP (\d+))?")
 REINSTATED = re.compile(r"^CAR (\d+) \(\w+\) (TIME [\d:.]+|LAP \d+) WILL BE REINSTATED")
@@ -25,13 +27,12 @@ class Deletion:
 
 @dataclass(frozen=True)
 class Tally:
-    title: str
-    subtitle: str
+    context: str
     deletions: list
-    drivers: dict  # driver number -> OpenF1 record, for colours
-    places: Counter  # turn ("T12") or circuit -> deletions
-    place_label: str
+    drivers: dict  # driver number -> OpenF1 record, for names and colours
     name: str  # file name
+    year: int
+    circuit: circuits.Circuit = None  # one session: where the turns are
 
 
 def deletions(messages, session):
@@ -51,14 +52,16 @@ def deletions(messages, session):
     return list(found.values())
 
 
+TOP_DRIVERS = 15
+
+
 def session_tally(year, circuit, code):
     s = openf1.find_session(year, circuit, code)
     cache = openf1.settled(s)
     found = deletions(openf1.get("race_control", cache=cache, session_key=s["session_key"]), s)
-    drivers = {d["driver_number"]: d for d in openf1.get("drivers", cache=cache, session_key=s["session_key"])}
-    return Tally(f"{year} {openf1.meeting_name(s)} · {s['session_name']} · Track limits",
-                 "Laps and lap times deleted for track limits", found, drivers,
-                 Counter(f"T{d.turn}" for d in found), "BY TURN", openf1.slug(s))
+    drivers = season.weekend_drivers(openf1.get("drivers", cache=cache, meeting_key=s["meeting_key"]))
+    return Tally(f"{year} {openf1.meeting_name(s)} · {s['session_name']} · Track limits", found, drivers,
+                 openf1.slug(s), year, circuits.circuit(s["circuit_key"], year))
 
 
 def season_tally(year):
@@ -69,25 +72,42 @@ def season_tally(year):
         raise openf1.DataNotFound(f"OpenF1 has no finished sessions for {year} yet")
     found = [d for s in done for d in
              deletions(openf1.get("race_control", cache=openf1.settled(s, now), session_key=s["session_key"]), s)]
-    drivers = {d["driver_number"]: d for d in openf1.get("drivers", session_key=done[-1]["session_key"])}
+    drivers = season.weekend_drivers(openf1.get("drivers", meeting_key=done[-1]["meeting_key"]))
     rounds = len({s["meeting_key"] for s in done})
-    return Tally(f"{year} track limits so far", f"Laps and lap times deleted, every session · {rounds} rounds, "
-                 f"up to {done[-1]['circuit_short_name']}", found, drivers,
-                 Counter(d.circuit for d in found), "BY CIRCUIT", f"{year}-season")
+    return Tally(f"{year} season · {rounds} rounds, up to {done[-1]['circuit_short_name']} · every session",
+                 found, drivers, f"{year}-season", year)
+
+
+def _name(t, driver, acronym):
+    return style.surname(t.drivers[driver]) if driver in t.drivers else acronym
+
+
+def headline(t):
+    if t.circuit:
+        turn, k = Counter(d.turn for d in t.deletions).most_common(1)[0]
+        return f"{len(t.deletions)} laps deleted for track limits, {k} of them at Turn {turn}"
+    by_driver = Counter((d.driver, d.acronym) for d in t.deletions).most_common()
+    top = [_name(t, n, a) for (n, a), k in by_driver if k == by_driver[0][1]]
+    who = top[0] if len(top) == 1 else f"{', '.join(top[:-1])} and {top[-1]}"
+    return f"{who} lost the most laps to track limits in {t.year}: {by_driver[0][1]}{' each' if len(top) > 1 else ''}"
 
 
 def render(t):
     if not t.deletions:
         raise openf1.DataNotFound("Race control deleted no laps for track limits")
-    fig = style.race_figure(t.title)
-    fig.text(0.5, 0.875, f"{t.subtitle} · {len(t.deletions)} in total", color=style.MUTED, fontsize=11, ha="center")
-    by_driver = Counter(d.driver for d in t.deletions)
-    names = {d.driver: d.acronym for d in t.deletions}
-    rows = [(names[n], k, style.team_colour(t.drivers.get(n, {}))) for n, k in by_driver.most_common()]
-    _bars(fig, [0.1, 0.1, 0.38, 0.72], "BY DRIVER", rows)
-    _bars(fig, [0.6, 0.1, 0.3, 0.72], t.place_label, [(p, k, style.MUTED) for p, k in t.places.most_common(12)])
-    fig.text(0.95, 0.04, "Source: race control messages (OpenF1). Reinstated laps are not counted.",
-             color=style.FAINT, fontsize=8.5, ha="right")
+    fig = style.story_figure(headline(t), t.context, "Laps and lap times race control deleted because the car went "
+                             "beyond the white lines" + (", including practice" if not t.circuit else ""))
+    by_driver = Counter((d.driver, d.acronym) for d in t.deletions).most_common(TOP_DRIVERS)
+    _bars(fig, [0.66, 0.08, 0.24, 0.66] if t.circuit else [0.16, 0.08, 0.3, 0.66], "DRIVERS",
+          [(_name(t, n, a), k, t.drivers.get(n, {})) for (n, a), k in by_driver])
+    if t.circuit:
+        _turn_map(fig, t)
+    else:
+        _bars(fig, [0.64, 0.08, 0.26, 0.66], "CIRCUITS",
+              [(c, k, None) for c, k in Counter(d.circuit for d in t.deletions).most_common(TOP_DRIVERS)])
+    fig.text(0.95, 0.03, "Reinstated laps are not counted · data: OpenF1 race control" +
+             (" · track: MultiViewer" if t.circuit else ""),
+             color=style.FAINT, fontsize=9, ha="right")
     return fig
 
 
@@ -95,22 +115,48 @@ def _bars(fig, rect, heading, rows):
     ax = style.bare_axes(fig, rect)
     longest = max(k for _, k, _ in rows)
     ax.set_xlim(0, longest * 1.15)
-    ax.set_ylim(max(len(rows), 12) - 0.4, -0.6)
-    for y, (label, k, colour) in enumerate(rows):
+    ax.set_ylim(max(len(rows), 10) - 0.4, -0.6)
+    for y, (label, k, driver) in enumerate(rows):
+        colour = style.team_colour(driver) if driver is not None else style.MUTED
         ax.barh(y, k, height=0.62, color=colour, linewidth=0)
-        ax.text(-longest * 0.02, y, label, ha="right", va="center", color=colour, fontsize=10.5, fontweight="bold")
-        ax.text(k + longest * 0.02, y, str(k), va="center", color=style.TEXT, fontsize=10.5, family=style.DIGITS)
+        ax.text(-longest * 0.03, y, label, ha="right", va="center", color=style.TEXT, fontsize=12, fontweight="bold")
+        ax.text(k + longest * 0.02, y, str(k), va="center", color=style.TEXT, fontsize=12, family=style.DIGITS)
     ax.set_xticks([])
     ax.set_yticks([])
-    fig.text(rect[0], rect[1] + rect[3] + 0.015, heading, color=style.FAINT, fontsize=8.5, fontweight="bold")
+    fig.text(rect[0], rect[1] + rect[3] + 0.02, heading, color=style.FAINT, fontsize=9, fontweight="bold")
+
+
+def _turn_map(fig, t):
+    """The circuit with a circle at every turn where laps were deleted, sized by how many."""
+    c = t.circuit
+    ax = fig.add_axes([0.03, 0.06, 0.55, 0.7])
+    x, y = style.rotate(c.line.x, c.line.y, c.rotation)
+    ax.plot(x, y, color=style.FAINT, linewidth=5, solid_capstyle="round")
+    at = dict(c.corners)
+    most = max(Counter(d.turn for d in t.deletions).values())
+    for turn, k in Counter(d.turn for d in t.deletions).items():
+        if turn not in at:
+            continue
+        px, py = style.rotate(np.interp(at[turn], c.line.s, c.line.x), np.interp(at[turn], c.line.s, c.line.y),
+                              c.rotation)
+        ax.scatter([px], [py], s=300 + 2200 * k / most, color="#e0a33a", alpha=0.85, edgecolors=style.BG,
+                   linewidths=2, zorder=3)
+        ax.text(px, py, str(k), color="#111111", fontsize=12 + 6 * k / most, fontweight="bold", ha="center",
+                va="center", zorder=4, family=style.DIGITS)
+        out = style.outward(x, y, px, py) * (26 + 18 * k / most)
+        ax.annotate(f"Turn {turn}", (px, py), xytext=tuple(out), textcoords="offset points", color=style.TEXT,
+                    fontsize=11, fontweight="bold", ha="center", va="center", zorder=4)
+    ax.set_aspect("equal")
+    ax.axis("off")
+    ax.margins(0.08)
 
 
 def facts(t, code):
-    names = {d.driver: d.acronym for d in t.deletions}
-    return {"code": code, "title": t.title, "total": len(t.deletions),
-            "by_driver": {names[n]: k for n, k in Counter(d.driver for d in t.deletions).most_common()},
-            t.place_label.lower().replace(" ", "_"): dict(t.places.most_common()),
-            "sources": ["OpenF1 race control"]}
+    return {"code": code, "context": t.context, "total": len(t.deletions),
+            "by_driver": {_name(t, n, a): k for (n, a), k in Counter((d.driver, d.acronym) for d in t.deletions).most_common()},
+            "by_turn" if t.circuit else "by_circuit":
+                dict(Counter(f"T{d.turn}" if t.circuit else d.circuit for d in t.deletions).most_common()),
+            "sources": ["OpenF1 race control", "MultiViewer"]}
 
 
 def main(argv=None):
@@ -120,8 +166,7 @@ def main(argv=None):
     t = cli.fetch(lambda: session_tally(args.year, *args.session) if args.session else season_tally(args.year))
     fig = cli.fetch(lambda: render(t))
     print(style.save(fig, facts(t, args.code), args.code, f"{t.name}_track-limits", args.out))
-    for n, k in Counter(d.acronym for d in t.deletions).most_common(5):
-        print(f"  {n:<4}{k}")
+    print(f"  {headline(t)}")
 
 
 if __name__ == "__main__":
