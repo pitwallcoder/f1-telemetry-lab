@@ -26,12 +26,12 @@ class Pace:
 
 
 def representative_laps(laps, pits, excluded, compounds):
-    """driver -> [(lap, seconds, compound)] without excluded laps, in- and out-laps or laps before/after a stop."""
+    """driver -> [(lap, seconds, compound)] without excluded (driver, lap) pairs, in- and out-laps or laps after a stop."""
     pit_laps = {(p["driver_number"], p["lap_number"]) for p in pits}
     out = {}
     for lap in laps:
         driver, number = lap["driver_number"], lap["lap_number"]
-        if (not lap.get("lap_duration") or number in excluded or lap.get("is_pit_out_lap")
+        if (not lap.get("lap_duration") or (driver, number) in excluded or lap.get("is_pit_out_lap")
                 or (driver, number) in pit_laps or (driver, number - 1) in pit_laps):
             continue
         out.setdefault(driver, []).append((number, lap["lap_duration"], compounds.get((driver, number))))
@@ -50,7 +50,7 @@ def driver_pace(driver, laps, total_laps):
 
 
 def ranking(r):
-    excluded = race.unrepresentative_laps(race.neutralisations(r.messages))
+    excluded = race.unrepresentative_laps(r.laps, race.neutralisations(r.messages))
     total = max(lap["lap_number"] for lap in r.laps)
     classified = race.classification(r.result)
     laps = representative_laps(r.laps, r.pits, excluded, race.compound_by_lap(r.stints))
@@ -125,7 +125,8 @@ def facts(r, paces, code):
         "drivers": [{"name": r.drivers[p.driver]["name_acronym"], "median_s": round(p.median, 3),
                      "gap_s": round(p.median - best, 3), "laps": len(p.laps)} for p in paces],
         "method": {"fuel_s_per_lap": FUEL_S_PER_LAP, "slow_lap_ratio": SLOW_LAP_RATIO,
-                   "excluded_laps": sorted(race.unrepresentative_laps(race.neutralisations(r.messages)))},
+                   "neutralisations": [{"kind": p.kind, "first_lap": p.first_lap, "last_lap": p.last_lap}
+                                       for p in race.neutralisations(r.messages)]},
         "precision": {"medians": "estimate: fuel correction is a typical value, not measured"},
         "sources": ["OpenF1"],
     }

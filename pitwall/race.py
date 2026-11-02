@@ -2,7 +2,7 @@
 
 Pure functions over OpenF1 records, plus `load`, the one place that fetches them.
 """
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 
 from pitwall import openf1
@@ -11,8 +11,10 @@ from pitwall import openf1
 @dataclass(frozen=True)
 class Neutralisation:
     kind: str  # "VSC", "SC" or "RED"
-    first_lap: int
+    first_lap: int  # leader's laps, for drawing
     last_lap: int
+    start: datetime = field(default=None, compare=False)  # race-control clock, for judging every car's laps
+    end: datetime = field(default=None, compare=False)
 
 
 @dataclass(frozen=True)
@@ -70,32 +72,45 @@ def neutralisations(messages):
     A period cut short by another (a safety car turned into a red flag) ends the lap before; a red flag ends when
     the session restarts; a period still open at the end runs to the last lap race control reported.
     """
-    periods, current, lap = [], None, None
+    periods, current, lap, now = [], None, None, None
+
+    def close(last_lap):
+        kind, first_lap, start = current
+        periods.append(Neutralisation(kind, first_lap, last_lap, start, now))
+
     for message in sorted((m for m in messages if m.get("lap_number")), key=lambda m: m["date"]):
-        text, lap = message["message"], message["lap_number"]
+        text, lap, now = message["message"], message["lap_number"], datetime.fromisoformat(message["date"])
         kind = next((k for prefix, k in STARTS.items() if text.startswith(prefix)), None)
         if kind and current and kind == current[0]:
             continue   # race control re-announcing the same period
         if kind:
             if current:
-                periods.append(Neutralisation(*current, max(current[1], lap - 1)))
-            current = (kind, lap)
+                close(max(current[1], lap - 1))
+            current = (kind, lap, now)
         elif current and text.startswith(ENDS[current[0]]):
-            periods.append(Neutralisation(*current, lap))
+            close(lap)
             current = None
     if current:
-        periods.append(Neutralisation(*current, lap))
+        close(lap)
     return periods
 
 
-def unrepresentative_laps(periods):
-    """Laps that say nothing about pace: lap 1, every neutralised lap, and the restart lap after a SC or red flag."""
-    laps = {1}
-    for period in periods:
-        laps.update(range(period.first_lap, period.last_lap + 1))
-        if period.kind in ("SC", "RED"):
-            laps.add(period.last_lap + 1)
-    return laps
+def unrepresentative_laps(laps, periods):
+    """(driver, lap) pairs that say nothing about pace: lap 1, any lap run partly under a VSC, SC or red flag, and
+    each driver's first lap after a SC or red flag. Judged on the clock, so lapped cars lose their own laps."""
+    excluded = {(x["driver_number"], 1) for x in laps if x["lap_number"] == 1}
+    restart = set()
+    for lap in sorted((x for x in laps if x.get("date_start") and x.get("lap_duration")),
+                      key=lambda x: (x["driver_number"], x["lap_number"])):
+        key, start = (lap["driver_number"], lap["lap_number"]), datetime.fromisoformat(lap["date_start"])
+        end = start + timedelta(seconds=lap["lap_duration"])
+        hit = [p for p in periods if start < p.end and p.start < end]
+        if hit or key[0] in restart:
+            excluded.add(key)
+        restart.discard(key[0])
+        if any(p.kind in ("SC", "RED") for p in hit):
+            restart.add(key[0])
+    return excluded
 
 
 def classification(result):

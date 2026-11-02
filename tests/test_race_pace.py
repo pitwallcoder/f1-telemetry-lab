@@ -13,7 +13,7 @@ def test_representative_laps_drop_excluded_pit_and_out_laps():
             lap(1, 6, 80.5), lap(1, 7, None)]
     pits = [{"driver_number": 1, "lap_number": 3}]
     compounds = {(1, 2): "SOFT", (1, 6): "MEDIUM"}
-    assert race_pace.representative_laps(laps, pits, {1}, compounds) == {1: [(2, 80.0, "SOFT"), (6, 80.5, "MEDIUM")]}
+    assert race_pace.representative_laps(laps, pits, {(1, 1)}, compounds) == {1: [(2, 80.0, "SOFT"), (6, 80.5, "MEDIUM")]}
 
 
 def test_fuel_correction_takes_off_the_fuel_still_on_board():

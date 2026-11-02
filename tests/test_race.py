@@ -1,14 +1,20 @@
+from datetime import datetime, timedelta
+
 from pitwall import race
 
-T0 = "2026-11-01T20:00:{:02d}+00:00"
+T0 = datetime.fromisoformat("2026-11-01T20:00:00+00:00")
+
+
+def at(seconds):
+    return (T0 + timedelta(seconds=seconds)).isoformat()
 
 
 def lap(driver, number, start_s, duration=None):
-    return {"driver_number": driver, "lap_number": number, "date_start": T0.format(start_s), "lap_duration": duration}
+    return {"driver_number": driver, "lap_number": number, "date_start": at(start_s), "lap_duration": duration}
 
 
 def message(second, lap_number, text):
-    return {"date": T0.format(second), "lap_number": lap_number, "message": text}
+    return {"date": at(second), "lap_number": lap_number, "message": text}
 
 
 def test_running_order_follows_the_line_crossings_not_the_lap_records():
@@ -19,9 +25,9 @@ def test_running_order_follows_the_line_crossings_not_the_lap_records():
 
 
 def test_grid_is_each_drivers_first_position_record():
-    records = [{"date": T0.format(5), "driver_number": 44, "position": 2},
-               {"date": T0.format(1), "driver_number": 44, "position": 1},
-               {"date": T0.format(1), "driver_number": 63, "position": 2}]
+    records = [{"date": at(5), "driver_number": 44, "position": 2},
+               {"date": at(1), "driver_number": 44, "position": 1},
+               {"date": at(1), "driver_number": 63, "position": 2}]
     assert race.grid(records) == {44: 1, 63: 2}
 
 
@@ -30,15 +36,25 @@ def test_neutralisations_from_race_control_including_a_safety_car_turned_red_fla
                 message(3, 44, "SAFETY CAR DEPLOYED"), message(4, 45, "RED FLAG - RACE SUSPENDED"),
                 message(5, 46, "SAFETY CAR LIGHTS ON"), message(6, 46, "SESSION STARTED"),
                 message(7, 59, "SAFETY CAR DEPLOYED"), message(8, 62, "SAFETY CAR IN THIS LAP"),
-                {"date": T0.format(0), "lap_number": None, "message": "SESSION STARTED"}]
+                {"date": at(0), "lap_number": None, "message": "SESSION STARTED"}]
     assert race.neutralisations(messages) == [race.Neutralisation("VSC", 7, 8), race.Neutralisation("SC", 44, 44),
                                               race.Neutralisation("RED", 45, 46), race.Neutralisation("SC", 59, 62)]
 
 
-def test_unrepresentative_laps_add_the_restart_lap_after_a_safety_car_or_red_flag_only():
-    periods = [race.Neutralisation("VSC", 7, 8), race.Neutralisation("SC", 44, 44),
-               race.Neutralisation("RED", 45, 46), race.Neutralisation("SC", 59, 62)]
-    assert race.unrepresentative_laps(periods) == {1, 7, 8, 44, 45, 46, 47, 59, 60, 61, 62, 63}
+def leader_and_lapped_car():
+    """Car 1 laps every 10 s; car 2 every 12.5 s, so its lap numbers lag the leader's."""
+    return [lap(1, n, 10 * (n - 1), 10.0) for n in range(1, 6)] + [lap(2, n, 12.5 * (n - 1), 12.5) for n in range(1, 5)]
+
+
+def test_unrepresentative_laps_follow_the_clock_so_a_lapped_car_loses_its_own_safety_car_laps():
+    periods = race.neutralisations([message(21, 3, "SAFETY CAR DEPLOYED"), message(29, 3, "SAFETY CAR IN THIS LAP")])
+    assert race.unrepresentative_laps(leader_and_lapped_car(), periods) == {
+        (1, 1), (1, 3), (1, 4), (2, 1), (2, 2), (2, 3), (2, 4)}
+
+
+def test_unrepresentative_laps_add_no_restart_lap_after_a_vsc():
+    periods = race.neutralisations([message(21, 3, "VSC DEPLOYED"), message(29, 3, "VSC ENDING")])
+    assert race.unrepresentative_laps(leader_and_lapped_car(), periods) == {(1, 1), (1, 3), (2, 1), (2, 2), (2, 3)}
 
 
 def test_classification_leaves_out_unclassified_drivers():
