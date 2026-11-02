@@ -129,14 +129,16 @@ on board, a typical estimate rather than a measured figure, so medians are estim
 
 The shared lap-by-lap logic is in `pitwall/race.py`; each chart module only turns it into a picture.
 
-### Gap to the leader
+### The fight between two drivers
 
 ```bash
-uv run python -m pitwall.race_gaps 2026 "Mexico City" --code PW-018
+uv run python -m pitwall.race_gaps 2026 "Mexico City" --code PW-018     # the top two finishers
+uv run python -m pitwall.race_gaps 2026 "Mexico City" LEC HAM
 ```
 
-The top ten finishers' time behind the first car to complete each lap, from official line crossings, with the
-same tyre circles, neutralisation shading and dashed second drivers as the position chart.
+How far apart two drivers were at the end of every lap, from official line crossings: above the line the driver
+classified ahead leads, below the other one. Each pit stop is marked with the tyres fitted and who pitted, and
+VSC, safety car and red flag laps are shaded.
 
 ### Positions gained
 
@@ -144,8 +146,8 @@ same tyre circles, neutralisation shading and dashed second drivers as the posit
 uv run python -m pitwall.positions_gained 2026 "Mexico City" --code PW-017
 ```
 
-Every classified driver's places gained from the grid to the flag (bars, official classification) and to the end
-of lap 1 (rings, order across the line). Retirements are left out.
+Every classified driver's places gained (green) or lost (red) from the grid to the official result, or with
+`--lap-one` to the order across the line at the end of lap 1. Retirements are left out.
 
 ## Teammate head-to-head
 
@@ -171,7 +173,7 @@ Each driver's longest stint at race pace: no out-laps, no laps under a VSC, safe
 than 3% slower than the stint's fastest (cool-down laps, traffic, the in-lap), so a qualifying run of push and
 cool-down laps never counts. At least 5 laps. Laps are fuel-corrected to the run's last lap at ~0.035 s per lap and
 degradation is the slope of a straight line through them. Fuel loads and engine modes in practice are unknown, so
-the ranking is a guide, not a result. Drawn like race pace.
+the ranking is a guide, not a result. Drawn as a timing tower: average lap, gap, tyre, laps and tyre wear.
 
 ## Top speed
 
@@ -179,14 +181,14 @@ the ranking is a guide, not a result. Drawn like race pace.
 uv run python -m pitwall.top_speed 2026 "Las Vegas" Q --code PW-015
 ```
 
-Each driver's best official speed-trap reading of the session. OpenF1 has no reading on some laps (about 1 in 5);
+Each driver's best official speed-trap reading of the session, as a timing tower. OpenF1 has no reading on some laps (about 1 in 5);
 the JSON also lists both intermediates.
 
 ## Minisector dominance
 
 ```bash
-uv run python -m pitwall.minisectors 2026 "Mexico City" Q --code PW-019          # fastest of the top 3 teams
-uv run python -m pitwall.minisectors 2026 "Mexico City" Q VER LEC RUS
+uv run python -m pitwall.minisectors 2026 "Mexico City" Q --code PW-019          # fastest of the top 2 teams
+uv run python -m pitwall.minisectors 2026 "Mexico City" Q VER LEC
 ```
 
 The drivers' fastest laps, measured as in the speed-trace comparison (distance by fusion, every lap pinned to the
@@ -201,9 +203,15 @@ uv run python -m pitwall.track_limits 2026 --code PW-014                        
 uv run python -m pitwall.track_limits 2026 --session "Mexico City" R --code PW-013    # one session
 ```
 
-Laps and lap times race control deleted for track limits, by driver and by turn (one session) or by circuit (the
-season, every session including practice). Reinstated laps are not counted. OpenF1 files a few messages of an
+Laps and lap times race control deleted for track limits: by driver, and on the circuit map with a circle per
+turn sized by deletions (one session), or by circuit (the season, every session including practice). Reinstated laps are not counted. OpenF1 files a few messages of an
 earlier session of the weekend under a later one, so messages from before the session started are ignored.
+
+### For readers who are not data people
+
+The new charts share one layout (`style.story_figure`): the event in small capitals, the takeaway as the title,
+worked out from the data ("Verstappen beat Hamilton by 0.8 s"), and one plain sentence on how to read the chart.
+Drivers go by surname, rankings look like a timing tower, and technical caveats sit in the footer.
 
 ## Development
 
