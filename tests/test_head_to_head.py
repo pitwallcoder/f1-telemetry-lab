@@ -64,3 +64,12 @@ def test_no_teammate_pairs_is_reported_instead_of_crashing():
     rounds = [round_([(1, 1), (16, 2)], {1: None, 16: None})]
     with pytest.raises(DataNotFound, match="teammates"):
         head_to_head.duels(rounds, with_gaps=False)
+
+
+def test_a_zero_median_gap_reads_as_level_not_as_an_advantage():
+    d = head_to_head.Duel("Ferrari", 16, 44, {16: 2, 44: 1}, [-0.1, 0.0, 0.1],
+                          {16: {"name_acronym": "LEC"}, 44: {"name_acronym": "HAM"}})
+    assert head_to_head.gap_label(d) == "level"
+    faster = head_to_head.Duel("Ferrari", 16, 44, {16: 2, 44: 1}, [-0.2, -0.1],
+                               {16: {"name_acronym": "LEC"}, 44: {"name_acronym": "HAM"}})
+    assert head_to_head.gap_label(faster) == "LEC by 0.150 s"

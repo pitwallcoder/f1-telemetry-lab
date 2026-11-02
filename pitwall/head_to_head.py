@@ -112,9 +112,14 @@ def _row(fig, ax, y, d, kind):
     fy = _fig_y(fig, ax, y)
     fig.text(0.05, fy, d.team, color=colour, fontsize=10.5, fontweight="bold", va="center")
     if kind == "Q" and d.median_gap is not None:
-        faster = d.first if d.median_gap < 0 else d.second
-        fig.text(0.86, fy, f"{d.name(faster)} by {abs(d.median_gap):.3f} s", color=style.TEXT,
+        fig.text(0.86, fy, gap_label(d), color=style.TEXT,
                  fontsize=10, va="center", ha="center", family=style.DIGITS)
+
+
+def gap_label(d):
+    if round(d.median_gap, 3) == 0:
+        return "level"
+    return f"{d.name(d.first if d.median_gap < 0 else d.second)} by {abs(d.median_gap):.3f} s"
 
 
 def _fig_y(fig, ax, y):
