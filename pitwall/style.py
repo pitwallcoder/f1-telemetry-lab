@@ -15,6 +15,7 @@ TEXT = "#f4f4f5"
 MUTED = "#a1a1aa"
 FAINT = "#52525b"
 PURPLE = "#a855f7"
+FALLBACK_COLOUR = MUTED.lstrip("#")
 
 MONO = ["JetBrainsMono Nerd Font", "JetBrains Mono", "Menlo", "DejaVu Sans Mono"]
 SANS = ["Helvetica Neue", "Arial", "DejaVu Sans"]
@@ -101,6 +102,11 @@ def track_map(fig, rect, x, y, zones, finish, rotation=0):
     ax.set_aspect("equal")
     ax.axis("off")
     return ax
+
+
+def lap_time(seconds):
+    minutes, rest = divmod(seconds, 60)
+    return f"{int(minutes)}:{rest:06.3f}"
 
 
 def save(fig, facts, code, name, out_dir="out"):

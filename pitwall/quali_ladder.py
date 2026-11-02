@@ -8,7 +8,6 @@ import sys
 from dataclasses import dataclass
 
 from pitwall import openf1, style
-from pitwall.speed_chart import FALLBACK_COLOUR, lap_time
 
 SEGMENTS = ("Q1", "Q2", "Q3")
 SPRINT_SEGMENTS = ("SQ1", "SQ2", "SQ3")
@@ -41,7 +40,7 @@ def ladder(results, laps, drivers, segments=SEGMENTS):
         name = info.get("name_acronym", str(number))
         if lap is None:
             raise openf1.DataNotFound(f"OpenF1 has no lap with sectors for {name}'s {segment} time {seconds}")
-        rows.append(Row(result["position"], name, info.get("team_colour") or FALLBACK_COLOUR, segment, lap))
+        rows.append(Row(result["position"], name, info.get("team_colour") or style.FALLBACK_COLOUR, segment, lap))
     if not rows:
         raise openf1.DataNotFound("OpenF1 has no qualifying result for this session yet")
     return rows
@@ -67,7 +66,7 @@ def render(session, meeting_name, rows, code):
     style.context_line(fig, code, f"{session['year']} {meeting_name} · {session['session_name']}")
     big = {"fontsize": 26, "fontweight": "bold"}
     style.text_row(fig, 0.04, 0.85, [(pole.name, f"#{pole.colour}", big),
-                                     (lap_time(pole.lap["lap_duration"]), style.TEXT, big),
+                                     (style.lap_time(pole.lap["lap_duration"]), style.TEXT, big),
                                      ("POLE", style.MUTED, {"fontsize": 12})])
     fig.text(0.04, 0.808, "Gap to pole · each driver's classifying lap · official timing · "
              "sectors vs pole's, white = faster", fontsize=10, color=style.MUTED)
@@ -123,7 +122,7 @@ def _sectors(ax, rows, pole):
         ax.annotate(title, (x, 1), xycoords=("data", "axes fraction"), xytext=(0, 6), textcoords="offset points",
                     ha="right", fontsize=10, color=style.MUTED)
     for y, row in enumerate(rows):
-        cells = [(lap_time(row.lap["lap_duration"]), style.TEXT if row is pole else style.MUTED, "normal")]
+        cells = [(style.lap_time(row.lap["lap_duration"]), style.TEXT if row is pole else style.MUTED, "normal")]
         if row is pole:
             cells += [(f"{s:.3f}", style.TEXT, "normal") for s in row.sectors()]
         else:
@@ -139,7 +138,7 @@ def facts(session, meeting_name, rows, code):
         "code": code, "event": meeting_name, "session": session["session_name"], "year": session["year"],
         "circuit": session["circuit_short_name"],
         "rows": [{"position": r.position, "name": r.name, "segment": r.segment, "lap_number": r.lap["lap_number"],
-                  "lap_time": lap_time(r.lap["lap_duration"]), "sectors": r.sectors(),
+                  "lap_time": style.lap_time(r.lap["lap_duration"]), "sectors": r.sectors(),
                   "gap_to_pole_s": round(r.lap["lap_duration"] - pole.lap["lap_duration"], 3),
                   "sector_gaps_s": [round(g, 3) for g in sector_gaps(r, pole)]} for r in rows],
         "precision": {"lap_and_sectors": "official, exact"},
@@ -167,7 +166,7 @@ def main(argv=None):
     print(save(render(session, meeting_name, rows, args.code), session, meeting_name, rows, args.code, args.out))
     for r in rows:
         gaps = " ".join(f"{g:+.3f}" for g in sector_gaps(r, rows[0]))
-        print(f"  P{r.position:<3}{r.name} {r.segment} {lap_time(r.lap['lap_duration'])}  {gaps}")
+        print(f"  P{r.position:<3}{r.name} {r.segment} {style.lap_time(r.lap['lap_duration'])}  {gaps}")
 
 
 if __name__ == "__main__":

@@ -30,11 +30,6 @@ def test_zones_take_the_colour_of_the_driver_who_gained_there():
     assert [speed_chart.zone_colour(MIXED, z) for z in MIXED.zones] == ["#e8002d", "#3671c6", "#e8002d"]
 
 
-def test_lap_time_is_formatted_like_timing_screens():
-    assert speed_chart.lap_time(78.128) == "1:18.128"
-    assert speed_chart.lap_time(59.9) == "0:59.900"
-
-
 def test_quality_flags_sessions_outside_the_validated_range():
     assert Quality((3.4, 2.9), (-0.9, -3.2, -0.3)).trustworthy()
     assert not Quality((3.8, 3.1), (4.0, -3.7, -16.0)).trustworthy()

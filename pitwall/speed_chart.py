@@ -10,7 +10,6 @@ from pitwall import circuits, distance, openf1, style, telemetry
 from pitwall.circuits import UNITS_PER_M
 from pitwall.telemetry import Trace
 
-FALLBACK_COLOUR = "a1a1aa"
 ZONE_TAGS = "ABCDEFGH"
 PAD_S = 3  # data either side of the lap, so the fit and the finish line are not cut at the edges
 GRID_S = 0.05
@@ -147,7 +146,7 @@ def _pin_to_official_lines(a, b):
 
 
 def _driver(info, run, d):
-    return Driver(info["name_acronym"], info.get("team_colour") or FALLBACK_COLOUR, run.lap, Trace(run.t, d, run.speed))
+    return Driver(info["name_acronym"], info.get("team_colour") or style.FALLBACK_COLOUR, run.lap, Trace(run.t, d, run.speed))
 
 
 def _track_map(run, rotation):
@@ -183,15 +182,10 @@ def render(comparison, code):
     return fig
 
 
-def lap_time(seconds):
-    minutes, rest = divmod(seconds, 60)
-    return f"{int(minutes)}:{rest:06.3f}"
-
-
 def _timing_header(fig, c):
     big = {"fontsize": 26, "fontweight": "bold"}
     style.text_row(fig, 0.04, 0.85, [
-        (c.fast.name, f"#{c.fast.colour}", big), (lap_time(c.fast.lap["lap_duration"]), style.TEXT, big),
+        (c.fast.name, f"#{c.fast.colour}", big), (style.lap_time(c.fast.lap["lap_duration"]), style.TEXT, big),
         ("   ", style.TEXT, big),
         (c.slow.name, f"#{c.slow.colour}", big), (f"+{c.gap[-1]:.3f}", style.TEXT, big)])
     sectors = "   ".join(f"S{i} {g:+.3f}" for i, g in enumerate(c.sector_gaps(), 1))
@@ -278,7 +272,7 @@ def facts(comparison, code):
                                       c.slow.name: round(float(slow_speed.min()))}}
 
     def driver_facts(d):
-        return {"name": d.name, "lap_number": d.lap["lap_number"], "lap_time": lap_time(d.lap["lap_duration"]),
+        return {"name": d.name, "lap_number": d.lap["lap_number"], "lap_time": style.lap_time(d.lap["lap_duration"]),
                 "sectors": [d.lap[f"duration_sector_{i}"] for i in (1, 2, 3)],
                 "top_speed_kmh": round(float(d.trace.speed.max()))}
 
