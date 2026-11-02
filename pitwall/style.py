@@ -55,6 +55,36 @@ def race_figure(title):
     return fig
 
 
+def story_figure(headline, context, how_to_read):
+    """16:9 canvas for readers who are not data people: the event in small caps, the takeaway as the title, then one
+    plain sentence on how to read the chart."""
+    fig = _canvas("sans-serif", WORDS, (16, 9), 135)
+    fig.text(0.05, 0.94, context.upper(), color=MUTED, fontsize=10.5, fontweight="semibold")
+    fig.text(0.95, 0.94, "@pitwallcoder", color=PURPLE, fontsize=11, fontweight="semibold", ha="right")
+    fig.text(0.05, 0.875, headline, color=TEXT, fontsize=25, fontweight="bold")
+    fig.text(0.05, 0.83, how_to_read, color=MUTED, fontsize=12)
+    return fig
+
+
+def surname(driver):
+    full = (driver.get("full_name") or "").split()
+    return driver.get("last_name") or (full[-1].title() if full else driver.get("name_acronym", "?"))
+
+
+def tower(fig, rows, top=0.75, bottom=0.1, columns=(0.05, 0.53)):
+    """Ranked rows like a timing tower, split over `columns` when long: each row is the driver record and its cells,
+    (x offset, text, colour, text kwargs), drawn after the position and a chip in the team colour."""
+    per_column = -(-len(rows) // len(columns))
+    step = min(0.06, (top - bottom) / max(per_column - 1, 1))
+    for i, (driver, cells) in enumerate(rows):
+        x, y = columns[i // per_column], top - (i % per_column) * step
+        fig.text(x, y, str(i + 1), color=FAINT, fontsize=12, va="center", ha="right", family=DIGITS)
+        fig.patches.append(FancyBboxPatch((x + 0.012, y - 0.012), 0.005, 0.024, boxstyle="round,pad=0,rounding_size=0.002",
+                                          transform=fig.transFigure, facecolor=team_colour(driver), edgecolor="none"))
+        for dx, text, colour, kwargs in cells:
+            fig.text(x + 0.027 + dx, y, text, color=colour, va="center", **{"fontsize": 13, **kwargs})
+
+
 def bare_axes(fig, rect):
     ax = fig.add_axes(rect)
     style_axes(ax)
@@ -111,6 +141,15 @@ def corner_ticks(ax, corner_d, m_per_char=32, padding_m=12):
 def rotate(x, y, degrees):
     a = np.radians(degrees)
     return x * np.cos(a) - y * np.sin(a), x * np.sin(a) + y * np.cos(a)
+
+
+def outward(x, y, px, py):
+    """Unit vector across the track at the point of (x, y) nearest (px, py), on the side away from the middle of the
+    circuit: where a label sits clear of the track."""
+    i = int(np.argmin((x - px) ** 2 + (y - py) ** 2))
+    dx, dy = x[min(i + 1, len(x) - 1)] - x[max(i - 1, 0)], y[min(i + 1, len(y) - 1)] - y[max(i - 1, 0)]
+    normal = np.array([-dy, dx]) / max(np.hypot(dx, dy), 1e-9)
+    return normal if normal @ np.array([px - np.mean(x), py - np.mean(y)]) >= 0 else -normal
 
 
 def track_map(fig, rect, x, y, zones, finish, rotation=0):
