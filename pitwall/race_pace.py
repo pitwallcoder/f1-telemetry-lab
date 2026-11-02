@@ -2,15 +2,13 @@
 
   uv run python -m pitwall.race_pace 2026 "Mexico City" --code PW-010
 """
-import argparse
 import statistics
-import sys
 from dataclasses import dataclass
 
 import numpy as np
 from matplotlib.patches import FancyBboxPatch
 
-from pitwall import openf1, race, style
+from pitwall import cli, openf1, race, style
 
 # Typical estimate of the time a lap's remaining fuel costs; laps are shown as if run on an empty tank.
 FUEL_S_PER_LAP = 0.035
@@ -137,18 +135,9 @@ def save(fig, r, paces, code, out_dir="out"):
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(prog="python -m pitwall.race_pace", description=__doc__,
-                                     formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("year", type=int)
-    parser.add_argument("circuit", help="official circuit short name, e.g. 'Mexico City', Monza")
-    parser.add_argument("--code", default="PW-DRAFT", help="series code for the output folder, e.g. PW-010")
-    parser.add_argument("--out", default="out")
-    args = parser.parse_args(argv)
-    try:
-        r = race.load(args.year, args.circuit)
-        paces = ranking(r)
-    except openf1.DataNotFound as error:
-        sys.exit(f"error: {error}")
+    args = cli.parser("python -m pitwall.race_pace", __doc__, "PW-010").parse_args(argv)
+    r = cli.fetch(lambda: race.load(args.year, args.circuit))
+    paces = cli.fetch(lambda: ranking(r))
     print(save(render(r, paces), r, paces, args.code, args.out))
     for p in paces:
         print(f"  {r.drivers[p.driver]['name_acronym']:<4}{style.lap_time(p.median)}  +{p.median - paces[0].median:.3f}  ({len(p.laps)} laps)")

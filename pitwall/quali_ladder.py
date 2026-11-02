@@ -3,11 +3,9 @@
   uv run python -m pitwall.quali_ladder 2026 "Mexico City" --code PW-003
   uv run python -m pitwall.quali_ladder 2026 Miami SQ --code PW-004
 """
-import argparse
-import sys
 from dataclasses import dataclass
 
-from pitwall import openf1, style
+from pitwall import cli, openf1, style
 
 SEGMENTS = ("Q1", "Q2", "Q3")
 SPRINT_SEGMENTS = ("SQ1", "SQ2", "SQ3")
@@ -151,18 +149,10 @@ def save(fig, session, meeting_name, rows, code, out_dir="out"):
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(prog="python -m pitwall.quali_ladder", description=__doc__,
-                                     formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("year", type=int)
-    parser.add_argument("circuit", help="official circuit short name, e.g. 'Mexico City', Monza")
+    parser = cli.parser("python -m pitwall.quali_ladder", __doc__, "PW-003")
     parser.add_argument("session", nargs="?", default="Q", choices=("Q", "SQ"))
-    parser.add_argument("--code", default="PW-DRAFT", help="series code shown on the chart, e.g. PW-003")
-    parser.add_argument("--out", default="out")
     args = parser.parse_args(argv)
-    try:
-        session, meeting_name, rows = from_session(args.year, args.circuit, args.session)
-    except openf1.DataNotFound as error:
-        sys.exit(f"error: {error}")
+    session, meeting_name, rows = cli.fetch(lambda: from_session(args.year, args.circuit, args.session))
     print(save(render(session, meeting_name, rows, args.code), session, meeting_name, rows, args.code, args.out))
     for r in rows:
         gaps = " ".join(f"{g:+.3f}" for g in sector_gaps(r, rows[0]))

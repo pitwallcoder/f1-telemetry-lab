@@ -2,11 +2,9 @@
 
   uv run python -m pitwall.race_positions 2026 "Mexico City" --code PW-009
 """
-import argparse
-import sys
 from dataclasses import dataclass
 
-from pitwall import openf1, race, style
+from pitwall import cli, openf1, race, style
 
 NEUTRAL_SHADE = {"VSC": 0.16, "SC": 0.16, "RED": 0.28}
 
@@ -139,17 +137,8 @@ def save(fig, c, code, out_dir="out"):
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(prog="python -m pitwall.race_positions", description=__doc__,
-                                     formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("year", type=int)
-    parser.add_argument("circuit", help="official circuit short name, e.g. 'Mexico City', Monza")
-    parser.add_argument("--code", default="PW-DRAFT", help="series code for the output folder, e.g. PW-009")
-    parser.add_argument("--out", default="out")
-    args = parser.parse_args(argv)
-    try:
-        c = chart(race.load(args.year, args.circuit))
-    except openf1.DataNotFound as error:
-        sys.exit(f"error: {error}")
+    args = cli.parser("python -m pitwall.race_positions", __doc__, "PW-009").parse_args(argv)
+    c = cli.fetch(lambda: chart(race.load(args.year, args.circuit)))
     print(save(render(c), c, args.code, args.out))
 
 
