@@ -65,6 +65,11 @@ def find_session(year, circuit, code):
     return match_session(get("sessions", year=year), circuit, code, datetime.now(timezone.utc))
 
 
+def classified(row):
+    """Whether a session_result row has a finishing position; OpenF1 sometimes puts a status such as "RT" there."""
+    return isinstance(row.get("position"), int)
+
+
 def complete(lap):
     return bool(lap.get("lap_duration")) and all(lap.get(f"duration_sector_{i}") for i in (1, 2, 3))
 

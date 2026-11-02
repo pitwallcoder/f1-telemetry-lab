@@ -71,3 +71,8 @@ def test_the_fastest_time_in_each_sector_is_purple():
     fig = quali_ladder.render({"year": 2026, "session_name": "Qualifying"}, "Test GP", rows, "PW-TEST")
     purple = sorted(t.get_text() for ax in fig.axes for t in ax.texts if t.get_color() == style.PURPLE)
     assert purple == ["-0.028", "-0.110", "37.297"]
+
+
+def test_a_status_code_in_the_position_field_is_left_out_like_a_disqualification():
+    rows = quali_ladder.ladder([result("DQ", 30, [None, 95.2, 95.058]), result(1, 12, [95.0, 94.4, 94.035])], LAPS, DRIVERS)
+    assert [r.name for r in rows] == ["ANT"]

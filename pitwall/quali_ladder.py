@@ -26,7 +26,7 @@ class Row:
 def ladder(results, laps, drivers, segments=SEGMENTS):
     """Rows in official order, each with the lap that set the driver's classifying time."""
     rows = []
-    for result in sorted((r for r in results if r["position"]), key=lambda r: r["position"]):
+    for result in sorted(filter(openf1.classified, results), key=lambda r: r["position"]):
         timed = [(segment, t) for segment, t in zip(segments, result["duration"] or []) if t]
         if not timed:
             continue
