@@ -57,3 +57,10 @@ def test_a_driver_who_changed_seats_keeps_his_old_teams_colour_on_his_old_row():
     team_colour = {t.get_text(): t.get_color() for t in fig.texts}
     assert team_colour["Racing Bulls"] == "#6C98FF"
     assert team_colour["Red Bull Racing"] == "#4781D7"
+
+
+def test_no_teammate_pairs_is_reported_instead_of_crashing():
+    from pitwall.openf1 import DataNotFound
+    rounds = [round_([(1, 1), (16, 2)], {1: None, 16: None})]
+    with pytest.raises(DataNotFound, match="teammates"):
+        head_to_head.duels(rounds, with_gaps=False)

@@ -6,7 +6,7 @@
 import statistics
 from dataclasses import dataclass
 
-from pitwall import cli, race, season, style
+from pitwall import cli, openf1, race, style, season
 
 SESSIONS = {"Q": "Qualifying", "R": "Race"}
 RULE = "A classified driver beats an unclassified teammate (DNF, DSQ, no time); rounds where neither is classified don't count."
@@ -67,6 +67,8 @@ def duels(rounds, with_gaps):
             gap = same_part_gap(times[a], times[b]) if with_gaps else None
             if gap is not None:
                 entry["gaps"].append(gap)
+    if not tally:
+        raise openf1.DataNotFound("OpenF1 has no team names for these rounds yet, so no teammates can be paired")
     return sorted((_duel(t, a, b, e) for (t, a, b), e in tally.items()),
                   key=lambda d: (d.team, -sum(d.wins.values())))
 
@@ -140,7 +142,7 @@ def main(argv=None):
     parser.add_argument("session", choices=SESSIONS, help="Q for qualifying, R for the race")
     args = parser.parse_args(argv)
     rounds = cli.fetch(lambda: season.load(args.year, SESSIONS[args.session]))
-    found = duels(rounds, with_gaps=args.session == "Q")
+    found = cli.fetch(lambda: duels(rounds, with_gaps=args.session == "Q"))
     print(save(render(rounds, found, args.session), rounds, found, args.session, args.code, args.out))
     for d in found:
         gap = "" if d.median_gap is None else f"  median {d.median_gap:+.3f} s"
