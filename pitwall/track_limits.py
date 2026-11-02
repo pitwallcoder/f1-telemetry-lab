@@ -85,6 +85,8 @@ def _name(t, driver, acronym):
 def headline(t):
     if t.circuit:
         turn, k = Counter(d.turn for d in t.deletions).most_common(1)[0]
+        if len(t.deletions) == 1:
+            return f"1 lap deleted for track limits, at Turn {turn}"
         return f"{len(t.deletions)} laps deleted for track limits, {k} of them at Turn {turn}"
     by_driver = Counter((d.driver, d.acronym) for d in t.deletions).most_common()
     top = [_name(t, n, a) for (n, a), k in by_driver if k == by_driver[0][1]]

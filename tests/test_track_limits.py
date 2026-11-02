@@ -49,3 +49,8 @@ def test_season_headline_names_everyone_tied_at_the_top():
         "Antonelli and Sainz lost the most laps to track limits in 2026: 2 each"
     assert track_limits.headline(track_limits.Tally("c", [ant, new, new], drivers, "x", 2026)) == \
         "XXX lost the most laps to track limits in 2026: 2"
+
+
+def test_session_headline_reads_right_for_a_single_deletion():
+    one = track_limits.Tally("c", [track_limits.Deletion(4, "NOR", 4, "A")], {}, "x", 2026, circuit=object())
+    assert track_limits.headline(one) == "1 lap deleted for track limits, at Turn 4"
