@@ -1,6 +1,6 @@
 """Practice long runs: each driver's longest stint at race pace, fuel-corrected, with its tyre degradation.
 
-  uv run python -m pitwall.long_runs 2026 "Interlagos" --code PW-016           # FP2
+  uv run python -m pitwall.long_runs 2026 "Interlagos" --code PW-016           # FP2, or FP1 on a sprint weekend
   uv run python -m pitwall.long_runs 2026 "Interlagos" --session FP1
 """
 from dataclasses import dataclass
@@ -98,11 +98,21 @@ def facts(session, drivers, found, code):
             "sources": ["OpenF1"]}
 
 
+def practice(year, circuit, code):
+    """The asked session, else FP2, else FP1: a sprint weekend has a single practice."""
+    if code:
+        return openf1.find_session(year, circuit, code)
+    try:
+        return openf1.find_session(year, circuit, "FP2")
+    except openf1.DataNotFound:
+        return openf1.find_session(year, circuit, "FP1")
+
+
 def main(argv=None):
     parser = cli.parser("python -m pitwall.long_runs", __doc__, "PW-016")
-    parser.add_argument("--session", default="FP2", choices=["FP1", "FP2", "FP3"])
+    parser.add_argument("--session", choices=["FP1", "FP2", "FP3"], help="default: FP2, or FP1 on a sprint weekend")
     args = parser.parse_args(argv)
-    s = cli.fetch(lambda: openf1.find_session(args.year, args.circuit, args.session))
+    s = cli.fetch(lambda: practice(args.year, args.circuit, args.session))
     fetch = lambda endpoint: openf1.get(endpoint, cache=openf1.settled(s), session_key=s["session_key"])
     drivers = {d["driver_number"]: d for d in fetch("drivers")}
     found = cli.fetch(lambda: ranking(fetch("laps"), fetch("stints"), fetch("race_control")))

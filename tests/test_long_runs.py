@@ -47,3 +47,13 @@ def test_push_and_cool_down_laps_are_not_a_long_run_even_when_cool_laps_are_the_
     times = [93.1, 80.1, 103.9, 79.6, 118.4, 106.2, 80.0, 96.2]
     laps = [lap(18, n, t) for n, t in enumerate(times, 14)]
     assert long_runs.runs(laps, [stint(18, 14, 21, "SOFT")], excluded=set()) == []
+
+
+def test_practice_falls_back_to_fp1_on_a_sprint_weekend(monkeypatch):
+    def find_session(year, circuit, code):
+        if code == "FP2":
+            raise DataNotFound("No Practice 2 at Singapore this season")
+        return {"code": code}
+    monkeypatch.setattr(long_runs.openf1, "find_session", find_session)
+    assert long_runs.practice(2026, "Singapore", None) == {"code": "FP1"}
+    assert long_runs.practice(2026, "Singapore", "FP3") == {"code": "FP3"}
