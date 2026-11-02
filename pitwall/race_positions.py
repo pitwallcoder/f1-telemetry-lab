@@ -72,7 +72,7 @@ def render(c):
     ax.set_xlim(-0.6, last + 0.6)
     for y in range(1, n + 1):
         ax.axhline(y, color=style.GRID, linewidth=0.6, zorder=0)
-    _neutralisations(ax, c.periods)
+    neutralisations(ax, c.periods, lambda row: -0.05 + 0.33 * row)
     for driver in sorted(c.places, key=lambda d: (d not in c.second_drivers, -c.places[d].get(0, n + 1))):
         _driver_line(ax, c, driver, last)
     _tyres(ax, c)
@@ -101,11 +101,12 @@ def label_rows(periods):
     return rows
 
 
-def _neutralisations(ax, periods):
+def neutralisations(ax, periods, label_y):
+    """Shade each VSC, safety car and red flag; `label_y(row)` is where a label in that row goes, in data units."""
     for p in periods:
         ax.axvspan(p.first_lap - 0.5, p.last_lap + 0.5, color="#c98a1a", alpha=NEUTRAL_SHADE[p.kind], linewidth=0, zorder=0)
     for p, row in label_rows(periods):
-        ax.text((p.first_lap + p.last_lap) / 2, -0.05 + 0.33 * row, p.kind, color="#e0a33a", fontsize=8, ha="center",
+        ax.text((p.first_lap + p.last_lap) / 2, label_y(row), p.kind, color="#e0a33a", fontsize=8, ha="center",
                 va="top", fontweight="bold")
 
 
@@ -127,10 +128,14 @@ def _tyres(ax, c):
     for driver, lap, compound in c.tyres:
         if compound not in style.TYRES or lap not in c.places.get(driver, {}):
             continue
-        y = c.places[driver][lap]
-        ax.scatter([lap], [y], s=118, color=style.TYRES[compound], edgecolors=style.BG, linewidths=1.2, zorder=6)
-        ax.text(lap, y + 0.02, compound[0], color=style.TEXT if compound in ("SOFT", "INTERMEDIATE", "WET") else "#111111",
-                fontsize=6.8, fontweight="bold", ha="center", va="center", zorder=7)
+        tyre_marker(ax, lap, c.places[driver][lap], compound)
+
+
+def tyre_marker(ax, x, y, compound, nudge=0.02):
+    """A circle in the compound's colour with its initial, where a tyre set was fitted."""
+    ax.scatter([x], [y], s=118, color=style.TYRES[compound], edgecolors=style.BG, linewidths=1.2, zorder=6)
+    ax.text(x, y + nudge, compound[0], color=style.TEXT if compound in ("SOFT", "INTERMEDIATE", "WET") else "#111111",
+            fontsize=6.8, fontweight="bold", ha="center", va="center", zorder=7)
 
 
 def facts(c, code):
