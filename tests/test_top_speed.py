@@ -24,3 +24,9 @@ def test_headline_names_everyone_tied_on_the_top_speed():
     assert top_speed.headline(drivers, [(10, 351), (43, 351), (6, 350)]) == \
         "Gasly and Colapinto were fastest through the speed trap: 351 km/h"
     assert top_speed.headline(drivers, [(6, 352), (10, 351)]) == "Hadjar was fastest through the speed trap: 352 km/h"
+
+
+def test_headline_counts_rather_than_lists_a_crowd_tied_on_top():
+    drivers = {n: {"last_name": f"D{n}"} for n in range(1, 6)}
+    assert top_speed.headline(drivers, [(n, 351) for n in range(1, 6)]) == \
+        "5 drivers were fastest through the speed trap: 351 km/h"

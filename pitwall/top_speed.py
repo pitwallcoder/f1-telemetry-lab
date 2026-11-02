@@ -21,6 +21,8 @@ def ranking(laps, trap):
 def headline(drivers, ranked):
     top = ranked[0][1]
     names = [style.surname(drivers.get(n, {})) for n, kmh in ranked if kmh == top]
+    if len(names) > 3:
+        return f"{len(names)} drivers were fastest through the speed trap: {top} km/h"
     who = names[0] if len(names) == 1 else f"{', '.join(names[:-1])} and {names[-1]}"
     return f"{who} {'was' if len(names) == 1 else 'were'} fastest through the speed trap: {top} km/h"
 
