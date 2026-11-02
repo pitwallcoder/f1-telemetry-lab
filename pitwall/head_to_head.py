@@ -19,6 +19,10 @@ class Duel:
     second: int
     wins: dict  # driver -> rounds ahead
     gaps: list  # qualifying: first minus second, seconds, in the last part both set a time in
+    drivers: dict  # driver -> OpenF1 record from the last round they were teammates (colour, acronym)
+
+    def name(self, driver):
+        return self.drivers[driver]["name_acronym"]
 
     @property
     def median_gap(self):
@@ -59,6 +63,7 @@ def duels(rounds, with_gaps):
                 continue
             entry = tally.setdefault((t, a, b), {a: 0, b: 0, "gaps": []})
             entry[winner] += 1
+            entry["drivers"] = {a: r.drivers[a], b: r.drivers[b]}
             gap = same_part_gap(times[a], times[b]) if with_gaps else None
             if gap is not None:
                 entry["gaps"].append(gap)
@@ -69,12 +74,11 @@ def duels(rounds, with_gaps):
 def _duel(t, a, b, entry):
     first, second = (a, b) if entry[a] >= entry[b] else (b, a)
     sign = 1 if first == a else -1
-    return Duel(t, first, second, {a: entry[a], b: entry[b]}, [sign * g for g in entry["gaps"]])
+    return Duel(t, first, second, {a: entry[a], b: entry[b]}, [sign * g for g in entry["gaps"]], entry["drivers"])
 
 
 def render(rounds, found, kind):
     year, last = rounds[-1].session["year"], rounds[-1].session["circuit_short_name"]
-    drivers = {n: d for r in rounds for n, d in r.drivers.items()}
     fig = style.race_figure(f"{year} teammate head-to-head · {SESSIONS[kind]}")
     fig.text(0.5, 0.875, f"Who was classified ahead, round by round · {len(rounds)} rounds, up to {last}",
              color=style.MUTED, fontsize=11, ha="center")
@@ -86,7 +90,7 @@ def render(rounds, found, kind):
     ax.set_xticks([])
     ax.set_yticks([])
     for y, d in enumerate(found):
-        _row(fig, ax, y, d, drivers, kind)
+        _row(fig, ax, y, d, kind)
     fig.text(0.05, 0.045, RULE, color=style.FAINT, fontsize=8.5)
     if kind == "Q":
         fig.text(0.86, 0.855, "MEDIAN GAP", color=style.FAINT, fontsize=8.5, fontweight="bold", ha="center")
@@ -95,19 +99,19 @@ def render(rounds, found, kind):
     return fig
 
 
-def _row(fig, ax, y, d, drivers, kind):
-    colour = style.team_colour(drivers[d.first])
+def _row(fig, ax, y, d, kind):
+    colour = style.team_colour(d.drivers[d.first])
     wf, ws = d.wins[d.first], d.wins[d.second]
     ax.barh(y, -wf, height=0.58, color=colour, linewidth=0)
     ax.barh(y, ws, height=0.58, color=colour, alpha=0.4, linewidth=0)
     name = {"fontsize": 11.5, "fontweight": "bold", "va": "center"}
-    ax.text(-wf - 0.4, y, f"{drivers[d.first]['name_acronym']}  {wf}", ha="right", color=style.TEXT, **name)
-    ax.text(ws + 0.4, y, f"{ws}  {drivers[d.second]['name_acronym']}", ha="left", color=style.MUTED, **name)
+    ax.text(-wf - 0.4, y, f"{d.name(d.first)}  {wf}", ha="right", color=style.TEXT, **name)
+    ax.text(ws + 0.4, y, f"{ws}  {d.name(d.second)}", ha="left", color=style.MUTED, **name)
     fy = _fig_y(fig, ax, y)
     fig.text(0.05, fy, d.team, color=colour, fontsize=10.5, fontweight="bold", va="center")
     if kind == "Q" and d.median_gap is not None:
         faster = d.first if d.median_gap < 0 else d.second
-        fig.text(0.86, fy, f"{drivers[faster]['name_acronym']} by {abs(d.median_gap):.3f} s", color=style.TEXT,
+        fig.text(0.86, fy, f"{d.name(faster)} by {abs(d.median_gap):.3f} s", color=style.TEXT,
                  fontsize=10, va="center", ha="center", family=style.DIGITS)
 
 
@@ -116,11 +120,10 @@ def _fig_y(fig, ax, y):
 
 
 def facts(rounds, found, kind, code):
-    drivers = {n: d["name_acronym"] for r in rounds for n, d in r.drivers.items()}
     return {
         "code": code, "year": rounds[-1].session["year"], "session": SESSIONS[kind],
         "rounds": [r.session["circuit_short_name"] for r in rounds],
-        "duels": [{"team": d.team, "drivers": [drivers[d.first], drivers[d.second]],
+        "duels": [{"team": d.team, "drivers": [d.name(d.first), d.name(d.second)],
                    "ahead": [d.wins[d.first], d.wins[d.second]],
                    "median_gap_s": None if d.median_gap is None else round(d.median_gap, 3)} for d in found],
         "rule": RULE, "sources": ["OpenF1"],
@@ -139,10 +142,9 @@ def main(argv=None):
     rounds = cli.fetch(lambda: season.load(args.year, SESSIONS[args.session]))
     found = duels(rounds, with_gaps=args.session == "Q")
     print(save(render(rounds, found, args.session), rounds, found, args.session, args.code, args.out))
-    names = {n: d["name_acronym"] for r in rounds for n, d in r.drivers.items()}
     for d in found:
         gap = "" if d.median_gap is None else f"  median {d.median_gap:+.3f} s"
-        print(f"  {d.team:<16}{names[d.first]} {d.wins[d.first]}-{d.wins[d.second]} {names[d.second]}{gap}")
+        print(f"  {d.team:<16}{d.name(d.first)} {d.wins[d.first]}-{d.wins[d.second]} {d.name(d.second)}{gap}")
 
 
 if __name__ == "__main__":

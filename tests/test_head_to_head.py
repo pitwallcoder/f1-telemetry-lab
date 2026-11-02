@@ -43,3 +43,17 @@ def test_race_duels_carry_no_gaps():
     rounds = [round_([(1, 1), (81, 2)], {1: "McLaren", 81: "McLaren"}, {1: 5000.0, 81: 5003.0})]
     [d] = head_to_head.duels(rounds, with_gaps=False)
     assert d.gaps == [] and d.median_gap is None
+
+
+def test_a_driver_who_changed_seats_keeps_his_old_teams_colour_on_his_old_row():
+    def entry(team, colour):
+        return {"team_name": team, "team_colour": colour}
+    early = season.Round({"year": 2026, "circuit_short_name": "A"}, [{"driver_number": 30, "position": 5}, {"driver_number": 6, "position": 7}],
+                         {30: {**entry("Racing Bulls", "6C98FF"), "name_acronym": "LAW"}, 6: {**entry("Racing Bulls", "6C98FF"), "name_acronym": "HAD"}})
+    late = season.Round({"year": 2026, "circuit_short_name": "B"}, [{"driver_number": 1, "position": 1}, {"driver_number": 30, "position": 4}],
+                        {1: {**entry("Red Bull Racing", "4781D7"), "name_acronym": "VER"}, 30: {**entry("Red Bull Racing", "4781D7"), "name_acronym": "LAW"}})
+    rounds = [early, late]
+    fig = head_to_head.render(rounds, head_to_head.duels(rounds, with_gaps=False), "R")
+    team_colour = {t.get_text(): t.get_color() for t in fig.texts}
+    assert team_colour["Racing Bulls"] == "#6C98FF"
+    assert team_colour["Red Bull Racing"] == "#4781D7"
