@@ -1,4 +1,7 @@
 """Pit Wall Notes visual identity. Purple is the brand accent and never encodes data; drivers keep their team colours."""
+import json
+from pathlib import Path
+
 import matplotlib
 import numpy as np
 from matplotlib.backends.backend_agg import FigureCanvasAgg
@@ -98,3 +101,13 @@ def track_map(fig, rect, x, y, zones, finish, rotation=0):
     ax.set_aspect("equal")
     ax.axis("off")
     return ax
+
+
+def save(fig, facts, code, name, out_dir="out"):
+    """The chart PNG and its facts JSON in out/<code>/, named <code>_<name>; returns the PNG path."""
+    folder = Path(out_dir) / code.lower()
+    folder.mkdir(parents=True, exist_ok=True)
+    stem = folder / f"{code.lower()}_{name}"
+    fig.savefig(f"{stem}.png", facecolor=BG)
+    Path(f"{stem}.json").write_text(json.dumps(facts, indent=2, ensure_ascii=False))
+    return Path(f"{stem}.png")

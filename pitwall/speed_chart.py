@@ -2,9 +2,7 @@
 
 The chart only states measured facts; interpretation belongs in the post that shares it.
 """
-import json
 from dataclasses import dataclass
-from pathlib import Path
 
 import numpy as np
 
@@ -300,9 +298,5 @@ def facts(comparison, code):
 
 
 def save(fig, comparison, code, out_dir="out"):
-    folder = Path(out_dir) / code.lower()
-    stem = f"{code.lower()}_{comparison.slug}_{comparison.fast.name}-vs-{comparison.slow.name}"
-    folder.mkdir(parents=True, exist_ok=True)
-    fig.savefig(folder / f"{stem}.png", facecolor=style.BG)
-    (folder / f"{stem}.json").write_text(json.dumps(facts(comparison, code), indent=2, ensure_ascii=False))
-    return folder / f"{stem}.png"
+    name = f"{comparison.slug}_{comparison.fast.name}-vs-{comparison.slow.name}"
+    return style.save(fig, facts(comparison, code), code, name, out_dir)

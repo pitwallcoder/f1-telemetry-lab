@@ -4,10 +4,8 @@
   uv run python -m pitwall.quali_ladder 2026 Miami SQ --code PW-004
 """
 import argparse
-import json
 import sys
 from dataclasses import dataclass
-from pathlib import Path
 
 from pitwall import openf1, style
 from pitwall.speed_chart import FALLBACK_COLOUR, lap_time
@@ -153,13 +151,7 @@ def facts(session, meeting_name, rows, code):
 
 
 def save(fig, session, meeting_name, rows, code, out_dir="out"):
-    folder = Path(out_dir) / code.lower()
-    stem = f"{code.lower()}_{openf1.slug(session)}_ladder"
-    folder.mkdir(parents=True, exist_ok=True)
-    fig.savefig(folder / f"{stem}.png", facecolor=style.BG)
-    (folder / f"{stem}.json").write_text(json.dumps(facts(session, meeting_name, rows, code), indent=2,
-                                                    ensure_ascii=False))
-    return folder / f"{stem}.png"
+    return style.save(fig, facts(session, meeting_name, rows, code), code, f"{openf1.slug(session)}_ladder", out_dir)
 
 
 def main(argv=None):
