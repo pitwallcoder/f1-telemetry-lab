@@ -30,8 +30,13 @@ def pair(result, drivers, wanted):
     return tuple(sorted(picked, key=lambda n: classified.get(n, 99)))
 
 
-def headline(drivers, first, second, gap):
-    return f"{style.surname(drivers[first])} beat {style.surname(drivers[second])} by {gap[max(gap)]:.1f} s"
+def headline(drivers, first, second, gap, classified):
+    a, b = style.surname(drivers[first]), style.surname(drivers[second])
+    if second not in classified:
+        return f"{a} vs {b}, who did not finish"
+    if gap[max(gap)] < 0:
+        return f"{a} finished ahead of {b} after penalties"
+    return f"{a} beat {b} by {gap[max(gap)]:.1f} s"
 
 
 def colours(drivers, first, second):
@@ -43,7 +48,7 @@ def colours(drivers, first, second):
 def render(r, first, second, gap):
     s, (ca, cb) = r.session, colours(r.drivers, first, second)
     na, nb = style.surname(r.drivers[first]), style.surname(r.drivers[second])
-    fig = style.story_figure(headline(r.drivers, first, second, gap), f"{s['year']} {r.meeting_name} · Race",
+    fig = style.story_figure(headline(r.drivers, first, second, gap, race.classification(r.result)), f"{s['year']} {r.meeting_name} · Race",
                              f"How far apart {na} and {nb} were at the end of every lap. Above the line: {na} ahead. "
                              f"Below: {nb} ahead.")
     ax = style.bare_axes(fig, [0.08, 0.1, 0.84, 0.66])

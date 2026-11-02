@@ -30,4 +30,13 @@ def test_pair_rejects_an_unknown_driver():
 
 def test_headline_gives_the_margin_on_the_last_lap():
     drivers = {1: {"last_name": "Verstappen"}, 44: {"last_name": "Hamilton"}}
-    assert race_gaps.headline(drivers, 1, 44, {70: -3.0, 71: 0.84}) == "Verstappen beat Hamilton by 0.8 s"
+    assert race_gaps.headline(drivers, 1, 44, {70: -3.0, 71: 0.84}, classified={1: 1, 44: 2}) == \
+        "Verstappen beat Hamilton by 0.8 s"
+
+
+def test_headline_when_the_second_driver_did_not_finish_or_a_penalty_reversed_the_road_order():
+    drivers = {1: {"last_name": "Verstappen"}, 44: {"last_name": "Hamilton"}}
+    assert race_gaps.headline(drivers, 1, 44, {70: 3.0, 71: 2.0}, classified={1: 1}) == \
+        "Verstappen vs Hamilton, who did not finish"
+    assert race_gaps.headline(drivers, 1, 44, {70: -3.0, 71: -2.0}, classified={1: 1, 44: 2}) == \
+        "Verstappen finished ahead of Hamilton after penalties"
