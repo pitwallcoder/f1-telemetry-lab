@@ -46,3 +46,13 @@ def test_a_driver_without_a_grid_record_is_drawn_without_a_grid_label():
     labels = {t.get_text() for ax in race_positions.render(c).axes for t in ax.texts}
     assert "P1 VER" in labels and "ALB P2" in labels
     assert not any(label.endswith(" ALB") for label in labels)
+
+
+def test_back_to_back_neutralisations_share_one_label():
+    r = race.Race({"session_name": "Race", "year": 2026}, "Test GP", {1: {"name_acronym": "VER", "team_colour": None}},
+                  [], [], [], [], [], [])
+    periods = [race.Neutralisation("VSC", 7, 8), race.Neutralisation("SC", 44, 44), race.Neutralisation("RED", 45, 46)]
+    c = race_positions.Chart(r, {1: {0: 1, 50: 1}}, [], periods, {1: 1}, set())
+    labels = [t.get_text() for ax in race_positions.render(c).axes for t in ax.texts]
+    assert "SC · RED" in labels and "VSC" in labels
+    assert "SC" not in labels and "RED" not in labels

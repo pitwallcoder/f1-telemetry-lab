@@ -87,11 +87,23 @@ def render(c):
     return fig
 
 
+def back_to_back(periods):
+    """Periods grouped when one starts the lap after the previous ends, so their labels don't collide."""
+    groups = []
+    for p in periods:
+        if groups and p.first_lap <= groups[-1][-1].last_lap + 1:
+            groups[-1].append(p)
+        else:
+            groups.append([p])
+    return groups
+
+
 def _neutralisations(ax, periods):
     for p in periods:
         ax.axvspan(p.first_lap - 0.5, p.last_lap + 0.5, color="#c98a1a", alpha=NEUTRAL_SHADE[p.kind], linewidth=0, zorder=0)
-        ax.text((p.first_lap + p.last_lap) / 2, 0.55, p.kind, color="#e0a33a", fontsize=8, ha="center", va="top",
-                fontweight="bold")
+    for group in back_to_back(periods):
+        ax.text((group[0].first_lap + group[-1].last_lap) / 2, 0.55, " · ".join(p.kind for p in group), color="#e0a33a",
+                fontsize=8, ha="center", va="top", fontweight="bold")
 
 
 def _driver_line(ax, c, driver, last):
