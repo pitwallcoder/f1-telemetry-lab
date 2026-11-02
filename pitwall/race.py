@@ -68,9 +68,9 @@ def neutralisations(messages):
     """VSC, safety car and red flag periods from race control, by lap of the leader.
 
     A period cut short by another (a safety car turned into a red flag) ends the lap before; a red flag ends when
-    the session restarts.
+    the session restarts; a period still open at the end runs to the last lap race control reported.
     """
-    periods, current = [], None
+    periods, current, lap = [], None, None
     for message in sorted((m for m in messages if m.get("lap_number")), key=lambda m: m["date"]):
         text, lap = message["message"], message["lap_number"]
         kind = next((k for prefix, k in STARTS.items() if text.startswith(prefix)), None)
@@ -81,6 +81,8 @@ def neutralisations(messages):
         elif current and text.startswith(ENDS[current[0]]):
             periods.append(Neutralisation(*current, lap))
             current = None
+    if current:   # the race ended under it
+        periods.append(Neutralisation(*current, lap))
     return periods
 
 

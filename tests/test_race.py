@@ -51,3 +51,8 @@ def test_compound_by_lap_covers_every_lap_of_each_stint():
     stints = [{"driver_number": 16, "lap_start": 1, "lap_end": 2, "compound": "SOFT"},
               {"driver_number": 16, "lap_start": 3, "lap_end": 3, "compound": "MEDIUM"}]
     assert race.compound_by_lap(stints) == {(16, 1): "SOFT", (16, 2): "SOFT", (16, 3): "MEDIUM"}
+
+
+def test_a_period_still_open_when_the_race_ends_runs_to_the_last_lap():
+    messages = [message(1, 60, "RED FLAG - RACE SUSPENDED"), message(2, 61, "CHEQUERED FLAG")]
+    assert race.neutralisations(messages) == [race.Neutralisation("RED", 60, 61)]
