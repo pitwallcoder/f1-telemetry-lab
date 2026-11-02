@@ -75,7 +75,7 @@ def render(c):
     for y in range(1, n + 1):
         ax.axhline(y, color=style.GRID, linewidth=0.6, zorder=0)
     _neutralisations(ax, c.periods)
-    for driver in sorted(c.places, key=lambda d: (d not in c.second_drivers, -c.places[d][0])):
+    for driver in sorted(c.places, key=lambda d: (d not in c.second_drivers, -c.places[d].get(0, n + 1))):
         _driver_line(ax, c, driver, last)
     _tyres(ax, c)
     ax.set_yticks([])
@@ -102,7 +102,8 @@ def _driver_line(ax, c, driver, last):
     ax.plot(laps, y, color=colour, linewidth=1.6, linestyle=(0, (4, 2.2)) if driver in c.second_drivers else "-",
             zorder=3, solid_joinstyle="round", dash_joinstyle="round")
     label = {"color": colour, "fontsize": 9.5, "fontweight": "bold", "va": "center"}
-    ax.text(-1.2, y[0], f"P{y[0]} {info['name_acronym']}", ha="right", **label)
+    if 0 in c.places[driver]:
+        ax.text(-1.2, y[0], f"P{y[0]} {info['name_acronym']}", ha="right", **label)
     if driver in c.classified:
         ax.text(last + 1.2, y[-1], f"{info['name_acronym']} {finish_label(c, driver, y[-1])}", **label)
     else:
@@ -125,7 +126,7 @@ def facts(c, code):
     return {
         "code": code, "event": c.race.meeting_name, "session": s["session_name"], "year": s["year"],
         "laps": last,
-        "drivers": [{"name": names[d], "grid": p[0], "last_lap": max(p), "road_finish": road_finish(c, d),
+        "drivers": [{"name": names[d], "grid": p.get(0), "last_lap": max(p), "road_finish": road_finish(c, d),
                      "classified": c.classified.get(d), "places": [p[k] for k in sorted(p)]} for d, p in c.places.items()],
         "neutralisations": [{"kind": p.kind, "first_lap": p.first_lap, "last_lap": p.last_lap} for p in c.periods],
         "tyres": [{"driver": names.get(d, str(d)), "fitted_after_lap": lap, "compound": comp} for d, lap, comp in c.tyres],

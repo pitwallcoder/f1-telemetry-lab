@@ -36,3 +36,13 @@ def test_a_lapped_classified_driver_is_a_finisher_not_a_retirement():
     c = race_positions.Chart(r, places, [], [], {1: 1, 2: 2}, set())
     finish = {d["name"]: d["road_finish"] for d in race_positions.facts(c, "PW-TEST")["drivers"]}
     assert finish == {"VER": 1, "ALB": 2, "STR": None}
+
+
+def test_a_driver_without_a_grid_record_is_drawn_without_a_grid_label():
+    r = race.Race({"session_name": "Race", "year": 2026}, "Test GP",
+                  {1: {"name_acronym": "VER", "team_colour": "4781D7"}, 2: {"name_acronym": "ALB", "team_colour": None}},
+                  [], [], [], [], [], [])
+    c = race_positions.Chart(r, {1: {0: 1, 1: 1, 2: 1}, 2: {1: 2, 2: 2}}, [], [], {1: 1, 2: 2}, set())
+    labels = {t.get_text() for ax in race_positions.render(c).axes for t in ax.texts}
+    assert "P1 VER" in labels and "ALB P2" in labels
+    assert not any(label.endswith(" ALB") for label in labels)
