@@ -56,3 +56,9 @@ def test_compound_by_lap_covers_every_lap_of_each_stint():
 def test_a_period_still_open_when_the_race_ends_runs_to_the_last_lap():
     messages = [message(1, 60, "RED FLAG - RACE SUSPENDED"), message(2, 61, "CHEQUERED FLAG")]
     assert race.neutralisations(messages) == [race.Neutralisation("RED", 60, 61)]
+
+
+def test_a_repeated_start_message_does_not_open_a_second_period():
+    messages = [message(1, 10, "RED FLAG - RACE SUSPENDED"), message(2, 10, "RED FLAG - RACE SUSPENDED"),
+                message(3, 12, "SESSION STARTED")]
+    assert race.neutralisations(messages) == [race.Neutralisation("RED", 10, 12)]

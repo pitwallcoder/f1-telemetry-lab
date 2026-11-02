@@ -74,6 +74,8 @@ def neutralisations(messages):
     for message in sorted((m for m in messages if m.get("lap_number")), key=lambda m: m["date"]):
         text, lap = message["message"], message["lap_number"]
         kind = next((k for prefix, k in STARTS.items() if text.startswith(prefix)), None)
+        if kind and current and kind == current[0]:
+            continue   # race control re-announcing the same period
         if kind:
             if current:
                 periods.append(Neutralisation(*current, max(current[1], lap - 1)))
@@ -81,7 +83,7 @@ def neutralisations(messages):
         elif current and text.startswith(ENDS[current[0]]):
             periods.append(Neutralisation(*current, lap))
             current = None
-    if current:   # the race ended under it
+    if current:
         periods.append(Neutralisation(*current, lap))
     return periods
 
