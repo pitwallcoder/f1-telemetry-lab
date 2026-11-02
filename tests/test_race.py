@@ -83,3 +83,18 @@ def test_a_repeated_start_message_does_not_open_a_second_period():
 def test_a_non_numeric_position_like_rt_counts_as_unclassified():
     result = [{"driver_number": 3, "position": 1}, {"driver_number": 55, "position": "RT"}]
     assert race.classification(result) == {3: 1}
+
+
+def test_load_takes_each_drivers_record_from_the_whole_weekend(monkeypatch):
+    """OpenF1 can leave a stand-in's team out of the race session's driver list."""
+    session = {"session_key": 9, "meeting_key": 7, "date_end": "2026-11-01T22:00:00+00:00", "location": "X"}
+    bare = {"driver_number": 50, "name_acronym": "HIR", "team_name": None}
+    full = {"driver_number": 50, "name_acronym": "HIR", "team_name": "Haas F1 Team", "last_name": "Hirakawa"}
+
+    def get(endpoint, cache=False, **params):
+        if endpoint == "drivers":
+            return [full, bare] if params.get("meeting_key") == 7 else [bare]
+        return [{"lap_number": 1, "driver_number": 50}] if endpoint == "laps" else []
+    monkeypatch.setattr(race.openf1, "find_session", lambda *args: session)
+    monkeypatch.setattr(race.openf1, "get", get)
+    assert race.load(2026, "X").drivers[50]["team_name"] == "Haas F1 Team"

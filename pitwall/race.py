@@ -5,7 +5,7 @@ Pure functions over OpenF1 records, plus `load`, the one place that fetches them
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 
-from pitwall import openf1
+from pitwall import openf1, season
 
 
 @dataclass(frozen=True)
@@ -135,5 +135,7 @@ def load(year, circuit):
     laps = fetch("laps")
     if not laps:
         raise openf1.DataNotFound("OpenF1 has no lap data for this race yet")
-    return Race(session, openf1.meeting_name(session), {d["driver_number"]: d for d in fetch("drivers")}, laps,
+    # The race is the weekend's last session, so its driver list settles with the race.
+    drivers = season.weekend_drivers(openf1.get("drivers", cache=cache, meeting_key=session["meeting_key"]))
+    return Race(session, openf1.meeting_name(session), drivers, laps,
                 fetch("stints"), fetch("pit"), fetch("session_result"), fetch("race_control"), fetch("position"))
