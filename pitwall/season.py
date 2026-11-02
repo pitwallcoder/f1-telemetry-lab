@@ -22,6 +22,12 @@ def weekend_drivers(records):
     return drivers
 
 
+def weekend_settled(sessions, meeting_key, now):
+    """Whether every session of the weekend has settled: the weekend's driver list grows until the last one ends."""
+    last = max(s["date_end"] for s in sessions if s["meeting_key"] == meeting_key)
+    return openf1.settled({"date_end": last}, now)
+
+
 def finished_sessions(sessions, session_name, now):
     return sorted((s for s in sessions if s["session_name"] == session_name and not s.get("is_cancelled")
                    and datetime.fromisoformat(s["date_end"]) < now), key=lambda s: s["date_start"])
@@ -29,12 +35,12 @@ def finished_sessions(sessions, session_name, now):
 
 def load(year, session_name):
     """Every finished, non-cancelled `session_name` of the season that has a published result."""
-    rounds = []
-    for s in finished_sessions(openf1.get("sessions", year=year), session_name, datetime.now(timezone.utc)):
-        cache = openf1.settled(s)
-        result = openf1.get("session_result", cache=cache, session_key=s["session_key"])
+    rounds, sessions, now = [], openf1.get("sessions", year=year), datetime.now(timezone.utc)
+    for s in finished_sessions(sessions, session_name, now):
+        result = openf1.get("session_result", cache=openf1.settled(s, now), session_key=s["session_key"])
         if result:
-            drivers = openf1.get("drivers", cache=cache, meeting_key=s["meeting_key"])
+            drivers = openf1.get("drivers", cache=weekend_settled(sessions, s["meeting_key"], now),
+                                 meeting_key=s["meeting_key"])
             rounds.append(Round(s, result, weekend_drivers(drivers)))
     if not rounds:
         raise openf1.DataNotFound(f"OpenF1 has no {session_name} results for {year} yet")
