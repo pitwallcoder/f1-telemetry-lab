@@ -6,7 +6,7 @@
 import statistics
 from dataclasses import dataclass
 
-from pitwall import cli, openf1, race, style, season
+from pitwall import cli, openf1, race, season, style
 
 SESSIONS = {"Q": "Qualifying", "R": "Race"}
 RULE = "A classified driver beats an unclassified teammate (DNF, DSQ, no time); rounds where neither is classified don't count."
