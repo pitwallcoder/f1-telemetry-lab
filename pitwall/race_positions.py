@@ -68,7 +68,7 @@ def render(c):
     fig = style.race_figure(f"{s['year']} {c.race.meeting_name} · Race · Position chart")
     ax = style.bare_axes(fig, [0.075, 0.075, 0.85, 0.815])
     n, last = len(c.places), c.last_lap
-    ax.set_ylim(n + 0.6, 0.4)
+    ax.set_ylim(n + 0.6, -0.1)  # headroom above P1 for two rows of period labels
     ax.set_xlim(-0.6, last + 0.6)
     for y in range(1, n + 1):
         ax.axhline(y, color=style.GRID, linewidth=0.6, zorder=0)
@@ -87,23 +87,26 @@ def render(c):
     return fig
 
 
-def back_to_back(periods):
-    """Periods grouped when one starts the lap after the previous ends, so their labels don't collide."""
-    groups = []
+LABEL_GAP_LAPS = 3  # label centres closer than this would overlap at 8 pt
+
+
+def label_rows(periods):
+    """(period, row) with each label over its own shading; a label too close to the previous one drops a row."""
+    rows, previous = [], None
     for p in periods:
-        if groups and p.first_lap <= groups[-1][-1].last_lap + 1:
-            groups[-1].append(p)
-        else:
-            groups.append([p])
-    return groups
+        centre = (p.first_lap + p.last_lap) / 2
+        row = 1 - previous[1] if previous and centre - previous[0] < LABEL_GAP_LAPS else 0
+        rows.append((p, row))
+        previous = (centre, row)
+    return rows
 
 
 def _neutralisations(ax, periods):
     for p in periods:
         ax.axvspan(p.first_lap - 0.5, p.last_lap + 0.5, color="#c98a1a", alpha=NEUTRAL_SHADE[p.kind], linewidth=0, zorder=0)
-    for group in back_to_back(periods):
-        ax.text((group[0].first_lap + group[-1].last_lap) / 2, 0.55, " · ".join(p.kind for p in group), color="#e0a33a",
-                fontsize=8, ha="center", va="top", fontweight="bold")
+    for p, row in label_rows(periods):
+        ax.text((p.first_lap + p.last_lap) / 2, -0.05 + 0.33 * row, p.kind, color="#e0a33a", fontsize=8, ha="center",
+                va="top", fontweight="bold")
 
 
 def _driver_line(ax, c, driver, last):
