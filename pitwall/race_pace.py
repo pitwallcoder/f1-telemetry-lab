@@ -58,17 +58,8 @@ def ranking(r):
 
 
 def render(r, paces):
-    s = r.session
+    s, best = r.session, paces[0].median
     fig = style.race_figure(f"{s['year']} {r.meeting_name} · Race pace (fuel-corrected)")
-    boxes(fig, r.drivers, paces)
-    _table(fig, r, paces, paces[0].median)
-    legend(fig, paces, "Representative laps: no lap 1, pit in/out, VSC, SC, red flag or restart laps, nor laps 3% "
-           f"slower than the driver's median. Fuel-corrected at ~{FUEL_S_PER_LAP} s/lap. Box: middle 50% · white: median")
-    return fig
-
-
-def boxes(fig, drivers, paces):
-    """One box of laps per driver, in the order given, fastest at the top of the time axis."""
     ax = style.bare_axes(fig, [0.07, 0.25, 0.9, 0.62])
     times = np.concatenate([[t for _, t, _ in p.laps] for p in paces])
     lo, hi = np.floor(times.min() * 2) / 2, np.ceil(times.max() * 2) / 2
@@ -77,18 +68,16 @@ def boxes(fig, drivers, paces):
         ax.axhline(y, color=style.GRID, linewidth=0.7, zorder=0)
     rng = np.random.default_rng(7)  # fixed jitter: the same chart on every run
     for i, p in enumerate(paces):
-        _box(ax, i, p, style.team_colour(drivers[p.driver]), rng)
+        _box(ax, i, p, style.team_colour(r.drivers[p.driver]), rng)
     ax.set_xlim(-0.7, len(paces) - 0.3)
     ax.set_ylim(hi + 0.1, lo - 0.15)
     ax.set_yticks(ticks)
     ax.set_yticklabels([style.lap_time(v) for v in ticks], family=style.DIGITS, fontsize=9.5)
     ax.set_xticks([])
     ax.text(-0.65, lo - 0.08, "faster", color=style.FAINT, fontsize=9, va="top")
-
-
-def column_x(i, n):
-    """Figure x of the i-th box's centre, for text under it."""
-    return 0.07 + 0.9 * (i + 0.7) / (n + 0.4)
+    _table(fig, r, paces, best)
+    _legend(fig, paces)
+    return fig
 
 
 def _box(ax, i, p, colour, rng):
@@ -108,7 +97,7 @@ def _table(fig, r, paces, best):
     fig.text(0.03, 0.18, "median", color=style.FAINT, fontsize=8.5)
     fig.text(0.03, 0.15, "gap", color=style.FAINT, fontsize=8.5)
     for i, p in enumerate(paces):
-        x = column_x(i, n)
+        x = 0.07 + 0.9 * (i + 0.7) / (n + 0.4)
         info = r.drivers[p.driver]
         fig.text(x, 0.215, info["name_acronym"], color=style.team_colour(info), fontsize=11.5, fontweight="bold", ha="center")
         fig.text(x, 0.18, style.lap_time(p.median), color=style.TEXT, fontsize=9.5, ha="center", family=style.DIGITS)
@@ -117,12 +106,14 @@ def _table(fig, r, paces, best):
         fig.text(x, 0.12, f"{len(p.laps)} laps", color=style.FAINT, fontsize=8, ha="center")
 
 
-def legend(fig, paces, note):
+def _legend(fig, paces):
     used = {c for p in paces for _, _, c in p.laps}
     for k, compound in enumerate(c for c in style.TYRES if c in used):
         fig.text(0.07 + k * 0.07, 0.065, "●", color=style.TYRES[compound], fontsize=11, family="DejaVu Sans")
         fig.text(0.085 + k * 0.07, 0.067, compound.title(), color=style.MUTED, fontsize=9)
-    fig.text(0.97, 0.067, note, color=style.FAINT, fontsize=8.5, ha="right")
+    fig.text(0.97, 0.067, "Representative laps: no lap 1, pit in/out, VSC, SC, red flag or restart laps, nor laps 3% slower "
+             f"than the driver's median. Fuel-corrected at ~{FUEL_S_PER_LAP} s/lap. Box: middle 50% · white: median",
+             color=style.FAINT, fontsize=8.5, ha="right")
 
 
 def facts(r, paces, code):
